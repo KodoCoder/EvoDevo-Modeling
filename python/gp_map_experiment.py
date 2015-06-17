@@ -52,7 +52,8 @@ passed_neurons = [[], [], []]
 passed_sensors = [[], []]
 passed_wires = [[], [], []]
 big_holder = ''
-genomes = []
+germ_genomes = []
+soma_genomes = []
 
 # Codons
 # body
@@ -1256,10 +1257,10 @@ def Fitness_Collect_From_File():
 
 
 @timeout.timeout()
-def Fitness3_Get(gene_code, agent):
+def Fitness3_Get(s_gene_code, agent):
     global app_file, blueprint_file, actual_bodys_built, actual_joints_built
     global actual_neurons_built, actual_sensors_built, actual_wires_built
-    main(gene_code)
+    main(s_gene_code)
     while (not os.path.isfile(blueprint_file)):
         time.sleep(0.2)
     os.system(app_file)
@@ -1282,7 +1283,7 @@ def calc_noise(prob):
     return -1 * ((prob * math.log(prob, 2)) + (1-prob) * math.log((1-prob), 2))
 
 
-def set_output_data(gen, agent, fit, genecode, bad_run=False):
+def set_output_data(gen, agent, fit, g_genecode, s_genecode, bad_run=False):
     global parts_built, genecode_length, genecode_used_length, read_codons
     global regulators_built, total_updates, num_bodys_prepped, data_row
     global development_data, mutation_error, transcription_error
@@ -1301,19 +1302,22 @@ def set_output_data(gen, agent, fit, genecode, bad_run=False):
         else:
             transcription_noise = 0
         # Genecode
-        halfer = int(len(genecode) * .5)
-        genecode_part1 = genecode[:halfer]
-        genecode_part2 = genecode[halfer:]
+        halfer = int(len(g_genecode) * .5)
+        g_genecode_part1 = g_genecode[:halfer]
+        g_genecode_part2 = g_genecode[halfer:]
+        s_genecode_part1 = s_genecode[:halfer]
+        s_genecode_part2 = s_genecode[halfer:]
         data_row = [gen, agent, 0, 0, 0, 0, 0, 0, 0, 0, mutation_noise,
                     transcription_noise, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    genecode_part1, genecode_part2]
+                    g_genecode_part1, g_genecode_part2, s_genecode_part1,
+                    s_genecode_part2]
         development_data.append(data_row)
     else:
         # checking for a ridiculous fitness level
         if fit > 9000:
             fit = 0
         # dev data
-        genecode_length = len(genecode)
+        genecode_length = len(g_genecode)
         for p in parts_built:
             genecode_used_length += len(p.gene_sequence)
             read_codons += p.codons_read
@@ -1331,9 +1335,11 @@ def set_output_data(gen, agent, fit, genecode, bad_run=False):
         total_info = .5 * genecode_length   # -(.25 * log(.25, 2)) = .5 bits
         used_info = .5 * genecode_used_length
         # Genecode
-        halfer = int(len(genecode) * .5)
-        genecode_part1 = genecode[:halfer]
-        genecode_part2 = genecode[halfer:]
+        halfer = int(len(g_genecode) * .5)
+        g_genecode_part1 = g_genecode[:halfer]
+        g_genecode_part2 = g_genecode[halfer:]
+        s_genecode_part1 = s_genecode[:halfer]
+        s_genecode_part2 = s_genecode[halfer:]
         # output
         data_row = [gen, agent, fit, genecode_length, genecode_used_length,
                     read_codons, regulators_built, total_updates, total_info,
@@ -1342,12 +1348,13 @@ def set_output_data(gen, agent, fit, genecode, bad_run=False):
                     actual_joints_built, num_sensors_prepped,
                     actual_sensors_built, num_neurons_prepped,
                     actual_neurons_built, num_wires_prepped,
-                    actual_wires_built, genecode_part1, genecode_part2]
+                    actual_wires_built, g_genecode_part1, g_genecode_part2,
+                    s_genecode_part1, s_genecode_part2]
         development_data.append(data_row)
 
 
 def select_next_gen(g, p=pops):
-    global genomes, development_data
+    global germ_genomes, development_data
     fit_list = development_data['Fitness'][g*p:(g+1)*p]
     gc_1 = development_data['Gene Code p1'][g*p:(g+1)*p]
     gc_2 = development_data['Gene Code p2'][g*p:(g+1)*p]
@@ -1364,7 +1371,7 @@ def select_next_gen(g, p=pops):
     for i in range(ran):
         indy = fit_list.index(max(fit_list))
         # print fit_list[indy]
-        new_gc = reproduce_with_errors(gc_1[indy] + gc_2[indy])
+        new_gc = (gc_1[indy] + gc_2[indy])
         selected.append(tuple([float(fit_list[indy]), new_gc]))
         total_fit += max(fit_list)
         del(fit_list[indy])
@@ -1375,19 +1382,19 @@ def select_next_gen(g, p=pops):
         # print contribution
         # print i, selected[i][0]
         if(i >= 0 and i < 3):
-            genomes[i] = selected[i][1]
-            genomes[i + 1] = selected[i][1]
-            genomes[i + 2] = selected[i][1]
-            genomes[i + 3] = selected[i][1]
+            germ_genomes[i] = reproduce_with_errors(selected[i][1])
+            germ_genomes[i + 1] = reproduce_with_errors(selected[i][1])
+            germ_genomes[i + 2] = reproduce_with_errors(selected[i][1])
+            germ_genomes[i + 3] = reproduce_with_errors(selected[i][1])
         elif(i >= 3 and i < 9):
-            genomes[i] = selected[i][1]
-            genomes[i + 1] = selected[i][1]
-            genomes[i + 2] = selected[i][1]
+            germ_genomes[i] = reproduce_with_errors(selected[i][1])
+            germ_genomes[i + 1] = reproduce_with_errors(selected[i][1])
+            germ_genomes[i + 2] = reproduce_with_errors(selected[i][1])
         elif(i >= 9 and i < 18):
-            genomes[i] = selected[i][1]
-            genomes[i + 1] = selected[i][1]
+            germ_genomes[i] = reproduce_with_errors(selected[i][1])
+            germ_genomes[i + 1] = reproduce_with_errors(selected[i][1])
         elif(i >= 18):
-            genomes[i] = selected[i][1]
+            germ_genomes[i] = reproduce_with_errors(selected[i][1])
 
 
 def grab_genomes(dat_file, p=pops):
@@ -1433,7 +1440,7 @@ def test(s):
 
 
 def main(gene_code):
-    global genomes
+    global germ_genomes
     reset_globals()
     sequence_parser(gene_code)
     for i in sequence_list:
@@ -1477,27 +1484,28 @@ def run_one(f='./data/exp/dat/pop9/exp_data2.txt', g=11, a=1):
 
 def gen_runner(pop, gn):
     reset_globals()
+    global germ_genomes, soma_genomes
     for i in range(pop):
         try:
-            agentFit = Fitness3_Get(genomes[i], i)
-            set_output_data(gn, i, agentFit, genomes[i])
+            agentFit = Fitness3_Get(soma_genomes[i], i)
+            set_output_data(gn, i, agentFit, germ_genomes[i], soma_genomes[i])
         except timeout.TimeoutError:
             agentFit = 0
             log_timeouts.append(tuple([gn, i]))
-            set_output_data(gn, i, agentFit, genomes[i], True)
+            set_output_data(gn, i, agentFit, germ_genomes[i], soma_genomes[i], True)
         # print i, agentFit
 
 
 def sensitivity_run():
     global mutation_error, transcription_error, log_timeouts
-    global pops, gens, genomes, development_data
+    global pops, gens, germ_genomes, soma_genomes, development_data
     reset_globals()
-    genomes = []
+    germ_genomes = []
     sl = grab_genomes('/root/sim/python/data/sens/sens_data1.txt')
     for i in range(pops):
-        genomes.append(sl[i])
-        # genomes.append(generate(18000))
-    start_genes = genomes
+        germ_genomes.append(sl[i])
+        # germ_genomes.append(generate(18000))
+    start_genes = germ_genomes
     for r in range(2,3):
         if r == 0:
             for i in range(5, 51, 5):
@@ -1516,15 +1524,16 @@ def sensitivity_run():
                                                 'Joints Built', 'Sensors Prepped',
                                                 'Sensors Built', 'Neurons Prepped',
                                                 'Neurons Built', 'Wires Prepped',
-                                                'Wires Built', 'Gene Code p1',
-                                                'Gene Code p2']
+                                                'Wires Built', 'Germline Genes p1',
+                                                'Germline Genes p2', 'Somaline Genes p1',
+                                                'Somaline Genes p2']
                     d = make_data_file('/root/sim/python/data/sens3/')
-                    genomes = start_genes
+                    germ_genomes = start_genes
                     print "Testing ME: " + str(mutation_error),
                     print "; TE: " + str(transcription_error)
                     for k in range(gens):
                         for l in range(pops):
-                            genomes[l] = transcribe_with_errors(genomes[l])
+                            soma_genomes[l] = transcribe_with_errors(germ_genomes[l])
                         gen_runner(pops, k)
                         # print "Done with generation " + str(i)
                         select_next_gen(k)
@@ -1555,15 +1564,16 @@ def sensitivity_run():
                                                 'Joints Built', 'Sensors Prepped',
                                                 'Sensors Built', 'Neurons Prepped',
                                                 'Neurons Built', 'Wires Prepped',
-                                                'Wires Built', 'Gene Code p1',
-                                                'Gene Code p2']
+                                                'Wires Built', 'Germline Genes p1',
+                                                'Germline Genes p2', 'Somaline Genes p1',
+                                                'Somaline Genes p2']
                     d = make_data_file('/root/sim/python/data/sens2/')
                     print "Testing ME: " + str(mutation_error),
                     print "; TE: " + str(transcription_error)
-                    genomes = start_genes
+                    germ_genomes = start_genes
                     for k in range(gens):
                         for l in range(pops):
-                            genomes[l] = transcribe_with_errors(genomes[l])
+                            soma_genomes[l] = transcribe_with_errors(germ_genomes[l])
                         gen_runner(pops, k)
                         # print "Done with generation " + str(i)
                         select_next_gen(k)
@@ -1594,15 +1604,16 @@ def sensitivity_run():
                                                 'Joints Built', 'Sensors Prepped',
                                                 'Sensors Built', 'Neurons Prepped',
                                                 'Neurons Built', 'Wires Prepped',
-                                                'Wires Built', 'Gene Code p1',
-                                                'Gene Code p2']
+                                                'Wires Built', 'Germline Genes p1',
+                                                'Germline Genes p2', 'Somaline Genes p1',
+                                                'Somaline Genes p2']
                     d = make_data_file('/root/sim/python/data/sens/')
                     print "Testing ME: " + str(mutation_error),
                     print "; TE: " + str(transcription_error)
-                    genomes = start_genes
+                    germ_genomes = start_genes
                     for k in range(gens):
                         for l in range(pops):
-                            genomes[l] = transcribe_with_errors(genomes[l])
+                            soma_genomes[l] = transcribe_with_errors(germ_genomes[l])
                         gen_runner(pops, k)
                         # print "Done with generation " + str(i)
                         select_next_gen(k)
@@ -1621,14 +1632,14 @@ def sensitivity_run():
 # Change slect_next_gen before you run this!
 def experimental_run(f):
     global mutation_error, transcription_error, log_timeouts
-    global pops, gens, genomes, development_data
+    global pops, gens, germ_genomes, development_data
     reset_globals()
-    genomes = []
+    germ_genomes = []
     # sl = grab_genomes('/root/sim/python/data/sens/dev_data1.txt')
     for i in range(pops):
-        # genomes.append(sl[i])
-        genomes.append(generate(18000))
-    start_genes = genomes
+        # germ_genomes.append(sl[i])
+        germ_genomes.append(generate(18000))
+    start_genes = germ_genomes
     sgd = tablib.Dataset()
     sgd.headers = ['Gene Code p1', 'Gene Code p2']
     sgf = '/root/sim/python/data/exp/pop' + str(f) + '_genes.txt'
@@ -1670,10 +1681,10 @@ def experimental_run(f):
             print "Running Population: " + str(f),
             print "; ME: " + str(mutation_error),
             print "; TE: " + str(transcription_error)
-            genomes = start_genes
+            germ_genomes = start_genes
             for i in range(gens):
                 for j in range(pops):
-                    genomes[j] = transcribe_with_errors(genomes[j])
+                    soma_genomes[j] = transcribe_with_errors(germ_genomes[j])
                 gen_runner(pops, i)
                 print "Done with generation " + str(i)
                 select_next_gen(i)
