@@ -227,6 +227,13 @@ def reset_globals():
 ###############################################################################
 
 
+def sigmoid(x):
+    val = 1 / (1 + math.exp(-x))
+    if np.isnan(val):
+        val = 0
+    return val
+
+
 class Part(object):
     def __init__(self, gene_sequence):
         self.is_developing = True
@@ -769,29 +776,32 @@ class JointPart(Part):
         and one value for each limit in radians (upper/lower)"""
         motor = (self.reg_active_passive[0] - self.reg_active_passive[1]) > 0
         free = (self.reg_free_rigid[0] - self.reg_free_rigid[1]) > 0
-        # Normalized angle ranges in radians
-        maxi = 2 * math.pi
-        mini = -2 * math.pi
-        convi = math.pi/180
         try:
-            upper_limit = ((30 * (self.reg_upper_lower[0] /
-                                  self.reg_upper_lower[1]) * convi) -
-                           mini)/(maxi-mini)
+            upper_ratio = (float(self.reg_upper_lower[0]) -
+                           self.reg_upper_lower[1]) / (self.reg_upper_lower[0] + 
+                                                       self.reg_upper_lower[1])
+            upper_limit = upper_ratio * math.pi
         except ZeroDivisionError:
-            upper_limit = ((30 * self.reg_upper_lower[0] * convi) -
-                           mini)/(maxi-mini)
+            upper_ratio = .5 * math.pi
         try:
-            lower_limit = ((30 * (self.reg_upper_lower[2] /
-                                  self.reg_upper_lower[3]) * convi) -
-                           mini)/(maxi-mini)
+            lower_ratio = (float(self.reg_upper_lower[2]) -
+                           self.reg_upper_lower[3]) / (self.reg_upper_lower[2] +
+                                                       self.reg_upper_lower[3])
+            lower_limit = lower_ratio * math.pi
         except ZeroDivisionError:
-            lower_limit = ((30 * (self.reg_upper_lower[2]/1) * convi) -
-                           mini)/(maxi-mini)
+            lower_ratio = -.5 * math.pi
+        if free:
+            pass
+        else:
+            if (self.reg_upper_lower[0] > self.reg_upper_lower[2]):
+                lower_limit = upper_limit
+            else:
+                upper_limit = lower_limit
         inputs = self.reg_inputs[0] - self.reg_inputs[1]
         if inputs < 0:
             inputs = 0
-        self.blueprint = [motor, free, round(upper_limit, 3),
-                          round(lower_limit, 3), inputs]
+        self.blueprint = [motor, free, round(upper_limit, 4),
+                          round(lower_limit, 4), inputs]
         return self.blueprint
 
 
@@ -891,16 +901,17 @@ class SensorPart(Part):
 class WirePart(Part):
     def __init__(self, gene_sequence):
         Part.__init__(self, gene_sequence)
-        self.reg_weight = 0.
+        self.reg_weight = [0, 0]
         self.reg_direct = [0, 0]
-    
+
     def update(self):
         self.num_updates += 1
-        self.reg_weight += (self.codon_weight[0] - self.codon_weight[1])
+        self.reg_weight[0] += self.codon_weight[0]
+        self.reg_weight[1] += self.codon_weight[1]
         self.reg_direct[0] += self.codon_direct[0]
         self.reg_direct[1] += self.codon_direct[1]
         self.regulatory_elements += self.regulators_per_update
-    
+
     def diffuse_codons(self):
         global total_wr_weight, total_wr_direct, total_junk, total_regulators
         nu = self.num_updates
@@ -911,8 +922,8 @@ class WirePart(Part):
         else:
             while (self.regulatory_elements <= self.capacity):
                 self.num_diffuses += 1
-                self.reg_weight += (total_wr_weight[0] -
-                                    total_wr_weight[1]) * nu
+                self.reg_weight[0] += total_wr_weight[0] * nu
+                self.reg_weight[1] += total_wr_weight[1] * nu
                 self.reg_direct[0] += total_wr_direct[0] * nu
                 self.reg_direct[1] += total_wr_direct[1] * nu
                 self.regulatory_elements += total_regulators * nu
@@ -925,7 +936,13 @@ class WirePart(Part):
         """Returns final measurements for WirePart
 
         Includes weight of connection"""
-        weight = round(math.tanh(self.reg_weight/10.), 3)
+        try:
+            weight_ratio = (float(self.reg_weight[0]) -
+                            self.reg_weight[1]) / (self.reg_weight[0] +
+                                                   self.reg_weight[1])
+            weight = weight_ratio
+        except ZeroDivisionError:
+            weight = 0
         direct = ((self.reg_direct[0] - self.reg_direct[1]) >= 0)
         self.blueprint = [weight, direct]
         return self.blueprint
