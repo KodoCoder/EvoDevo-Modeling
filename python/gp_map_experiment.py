@@ -32,6 +32,7 @@ import os
 import random
 import time
 import itertools
+import bisect
 import timeout
 import math
 import tablib
@@ -158,6 +159,21 @@ def sigmoid(x):
     if np.isnan(val):
         val = 0
     return val
+
+
+def select(fs):
+    p = random.uniform(0, sum(fs))
+    print p
+    for i, f in enumerate(fs):
+        p -= f
+        print i, f, p
+        if p <= 0:
+            break
+    return i
+
+
+def select_fast(cfl):
+    return bisect.bisect_left(cfl, random.uniform(0, cfl[-1]))
 
 
 class Part(object):
@@ -402,72 +418,107 @@ class Part(object):
         push_list += self.reg_direct
         # if push_list > 0:
         #    print "PHL:", push_list
-        push_list = [math.floor(i * diffusion_rate_push) for i in push_list]
-        # if push_list > 0:
-        #    print "PHL flr:", push_list
+        # n_push_list = [push_list[i]/sum(push_list)
+        #                for i in range(len(push_list))]
+        # o_push_list = [0] * 40
+        o_push_list = [int(round(diffusion_rate_push * i)) for i in push_list]
+        """
+        re_to_push = int(diffusion_rate_push * sum(push_list))
+        while sum(o_push_list) < re_to_push:
+            m = max(push_list)
+            ml = [i for i, j in enumerate(push_list) if j == m]
+            mli = random.randrange(0, len(ml))
+            o_push_list[ml[mli]] += 1
+            push_list[ml[mli]] = 0
+        """
+        # push_list = [math.floor(i * diffusion_rate_push) for i in push_list]
+        # if o_push_list > 0:
+        #    print "PHL:", o_push_list
         regulator_pool = [i + j for i, j in
-                          itertools.izip(regulator_pool, push_list)]
+                          itertools.izip(regulator_pool, o_push_list)]
         # if sum(regulator_pool) > 0:
         #    print "RP af PH:", regulator_pool
-        return push_list
+        return o_push_list
 
     def get_pull_list(self):
         global regulator_pool
-        pull_list = [math.floor(i * diffusion_rate_pull)
-                     for i in regulator_pool]
+        pull_list = [i for i in regulator_pool]
         # if sum(pull_list) > 0:
         #    print "PLL flr:", pull_list
+        # o_pull_list = [0] * 40
+        o_pull_list = [int(round(diffusion_rate_pull * i)) for i in pull_list]
+        """
+        re_to_pull = int(diffusion_rate_pull * sum(pull_list))
+        while sum(o_pull_list) < re_to_pull:
+            m = max(pull_list)
+            ml = [i for i, j in enumerate(pull_list) if j == m]
+            mli = random.randrange(0, len(ml))
+            o_pull_list[ml[mli]] += 1
+            pull_list[ml[mli]] = 0
+        """
         regulator_pool = [i - j for i, j in
-                          itertools.izip(regulator_pool, pull_list)]
+                          itertools.izip(regulator_pool, o_pull_list)]
+        for c, e in enumerate(regulator_pool):
+            if e < 0:
+                regulator_pool[c] = 0
+                o_pull_list[c] += e
+        # if sum(o_pull_list) > 0:
+        #    print "PLL:", o_pull_list
         # if sum(regulator_pool) > 0:
         #    print "RP af PL:", regulator_pool
-        return pull_list
+        return o_pull_list
 
     def use_phpl_list(self, phlst, pllst):
-        self.reg_size[0] += phlst[0] - pllst[0]
-        self.reg_size[1] += phlst[1] - pllst[1]
-        self.reg_s_num[0] += phlst[2] - pllst[2]
-        self.reg_s_num[1] += phlst[3] - pllst[3]
-        self.reg_j_num[0] += phlst[4] - pllst[4]
-        self.reg_j_num[1] += phlst[5] - pllst[5]
-        self.reg_n_num[0] += phlst[6] - pllst[6]
-        self.reg_n_num[1] += phlst[7] - pllst[7]
-        self.reg_s_loc[0] += phlst[8] - pllst[8]
-        self.reg_s_loc[1] += phlst[9] - phlst[9]
-        self.reg_s_loc[2] += phlst[10] - phlst[10]
-        self.reg_s_loc[3] += phlst[11] - phlst[11]
-        self.reg_s_loc[4] += phlst[12] - phlst[12]
-        self.reg_s_loc[5] += phlst[13] - phlst[13]
-        self.reg_j_loc[0] += phlst[14] - phlst[14]
-        self.reg_j_loc[1] += phlst[15] - phlst[15]
-        self.reg_j_loc[2] += phlst[16] - phlst[16]
-        self.reg_j_loc[3] += phlst[17] - phlst[17]
-        self.reg_j_loc[4] += phlst[18] - phlst[18]
-        self.reg_j_loc[5] += phlst[19] - phlst[19]
+        self.reg_size[0] += pllst[0] - phlst[0]
+        self.reg_size[1] += pllst[1] - phlst[1]
+        self.reg_s_num[0] += pllst[2] - phlst[2]
+        self.reg_s_num[1] += pllst[3] - phlst[3]
+        self.reg_j_num[0] += pllst[4] - phlst[4]
+        self.reg_j_num[1] += pllst[5] - phlst[5]
+        self.reg_n_num[0] += pllst[6] - phlst[6]
+        self.reg_n_num[1] += pllst[7] - phlst[7]
+        self.reg_s_loc[0] += pllst[8] - phlst[8]
+        self.reg_s_loc[1] += pllst[9] - phlst[9]
+        self.reg_s_loc[2] += pllst[10] - phlst[10]
+        self.reg_s_loc[3] += pllst[11] - phlst[11]
+        self.reg_s_loc[4] += pllst[12] - phlst[12]
+        self.reg_s_loc[5] += pllst[13] - phlst[13]
+        self.reg_j_loc[0] += pllst[14] - phlst[14]
+        self.reg_j_loc[1] += pllst[15] - phlst[15]
+        self.reg_j_loc[2] += pllst[16] - phlst[16]
+        self.reg_j_loc[3] += pllst[17] - phlst[17]
+        self.reg_j_loc[4] += pllst[18] - phlst[18]
+        self.reg_j_loc[5] += pllst[19] - phlst[19]
         # JointPart REs
-        self.reg_active_passive[0] += phlst[20] - pllst[20]
-        self.reg_active_passive[1] += phlst[21] - pllst[21]
-        self.reg_free_rigid[0] += phlst[22] - pllst[22]
-        self.reg_free_rigid[1] += phlst[23] - pllst[23]
-        self.reg_upper_lower[0] += phlst[24] - pllst[24]
-        self.reg_upper_lower[1] += phlst[25] - pllst[25]
-        self.reg_upper_lower[2] += phlst[26] - pllst[26]
-        self.reg_upper_lower[3] += phlst[27] - pllst[27]
-        self.reg_j_inputs[0] += phlst[28] - pllst[28]
-        self.reg_j_inputs[1] += phlst[29] - pllst[29]
+        self.reg_active_passive[0] += pllst[20] - phlst[20]
+        self.reg_active_passive[1] += pllst[21] - phlst[21]
+        self.reg_free_rigid[0] += pllst[22] - phlst[22]
+        self.reg_free_rigid[1] += pllst[23] - phlst[23]
+        self.reg_upper_lower[0] += pllst[24] - phlst[24]
+        self.reg_upper_lower[1] += pllst[25] - phlst[25]
+        self.reg_upper_lower[2] += pllst[26] - phlst[26]
+        self.reg_upper_lower[3] += pllst[27] - phlst[27]
+        self.reg_j_inputs[0] += pllst[28] - phlst[28]
+        self.reg_j_inputs[1] += pllst[29] - phlst[29]
         # NeuronPart REs
-        self.reg_n_inputs[0] += phlst[30] - pllst[30]
-        self.reg_n_inputs[1] += phlst[31] - pllst[31]
-        self.reg_n_outputs[0] += phlst[32] - pllst[32]
-        self.reg_n_outputs[1] += phlst[33] - pllst[33]
+        self.reg_n_inputs[0] += pllst[30] - phlst[30]
+        self.reg_n_inputs[1] += pllst[31] - phlst[31]
+        self.reg_n_outputs[0] += pllst[32] - phlst[32]
+        self.reg_n_outputs[1] += pllst[33] - phlst[33]
         # SensorPart REs
-        self.reg_s_outputs[0] += phlst[34] - pllst[34]
-        self.reg_s_outputs[1] += phlst[35] - pllst[35]
+        self.reg_s_outputs[0] += pllst[34] - phlst[34]
+        self.reg_s_outputs[1] += pllst[35] - phlst[35]
         # WirePart REs
-        self.reg_weight[0] += phlst[36] - pllst[36]
-        self.reg_weight[1] += phlst[37] - pllst[37]
-        self.reg_direct[0] += phlst[38] - pllst[38]
-        self.reg_direct[1] += phlst[39] - pllst[39]
+        self.reg_weight[0] += pllst[36] - phlst[36]
+        self.reg_weight[1] += pllst[37] - phlst[37]
+        self.reg_direct[0] += pllst[38] - phlst[38]
+        self.reg_direct[1] += pllst[39] - phlst[39]
+
+    def _diffusion(self):
+        pllst = self.get_pull_list()
+        phlst = self.get_push_list()
+        self.use_phpl_list(phlst, pllst)
+        self.regulatory_elements += sum(phlst) - sum(pllst)
 
     def _update(self):
         self.num_updates += 1
@@ -517,11 +568,6 @@ class Part(object):
         self.reg_weight[1] += self.codon_weight[1]
         self.reg_direct[0] += self.codon_direct[0]
         self.reg_direct[1] += self.codon_direct[1]
-        # Diffusion Stuff
-        phlst = self.get_push_list()
-        pllst = self.get_pull_list()
-        self.use_phpl_list(phlst, pllst)
-        self.regulatory_elements += sum(phlst) - sum(pllst)
 
 
 class BodyPart(Part):
@@ -663,7 +709,7 @@ class JointPart(Part):
         if free:
             pass
         else:
-            if (self.reg_upper_lower[0] > self.reg_upper_lower[2]):
+            if (sum(self.reg_upper_lower[:2]) > sum(self.reg_upper_lower[2:])):
                 lower_limit = upper_limit
             else:
                 upper_limit = lower_limit
@@ -1136,6 +1182,26 @@ def select_next_gen(g, p=pops):
             germ_genomes[i] = reproduce_with_errors(selected[i][1])
 
 
+def select_next_gen2(g, p=pops):
+    global germ_genomes, development_data
+    fit_list = development_data['Fitness'][g*p:(g+1)*p]
+    gc_1 = development_data['Gene Code p1'][g*p:(g+1)*p]
+    gc_2 = development_data['Gene Code p2'][g*p:(g+1)*p]
+    n_fit_list = [int(round(p * (float(i)/sum(fit_list))))
+                  for i in fit_list]
+    while sum(n_fit_list) < pops:
+        m = max(fit_list)
+        ml = [i for i, j in enumerate(fit_list) if j == m]
+        mli = random.randrange(0, len(ml))
+        n_fit_list[ml[mli]] += 1
+        fit_list[ml[mli]] = 0
+    count = 0
+    for c, e in enumerate(fit_list):
+        for j in range(e):
+            germ_genomes[count] = reproduce_with_errors(gc_1[c] + gc_2[c])
+            count += 1
+
+
 def grab_genomes(dat_file, p=pops):
     m_data = tablib.Dataset()
     m_data.csv = open(dat_file, 'r').read()
@@ -1192,15 +1258,17 @@ def main(gene_code):
     while(parts_developing):
         for i in parts_developing:
             if i.capacity <= (i.regulatory_elements + i.regulators_per_update):
-                print i, i.regulatory_elements, i.capacity, regulator_pool
+                # print i, i.regulatory_elements, i.capacity, regulator_pool
                 # print "REs:", i.regulatory_elements
                 parts_developing.remove(i)
                 parts_built.append(i)
             else:
                 # print i, i.regulatory_elements, i.capacity, regulator_pool
                 i.update()
+                i._diffusion()
     setup_blueprints(parts_built)
     format_output()
+    # print big_holder
     output_to_file()
 
 
