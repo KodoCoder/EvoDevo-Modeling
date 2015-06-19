@@ -31,6 +31,7 @@
 import os
 import random
 import time
+import itertools
 import timeout
 import math
 import tablib
@@ -55,49 +56,10 @@ big_holder = ''
 germ_genomes = []
 soma_genomes = []
 
-# Codons
-# body
-# total_bp_sphere = 0
-# total_bp_cube = 0
-total_br_size = [0, 0]
-total_br_s_num = [0, 0]
-total_br_j_num = [0, 0]
-total_br_n_num = [0, 0]
-total_br_s_loc = [0, 0, 0, 0, 0, 0]
-total_br_j_loc = [0, 0, 0, 0, 0, 0]
-# joint
-# total_jp_hinge = 0
-total_jr_inputs = [0, 0]
-total_jr_active = [0, 0]
-total_jr_free = [0, 0]
-total_jr_upper = [0, 0]
-total_jr_lower = [0, 0]
-# neurons
-# total_np_neuron = 0
-total_nr_inputs = [0, 0]
-total_nr_outputs = [0, 0]
-# sensor
-# total_sp_touch = 0
-total_sr_outputs = [0, 0]
-# wire
-# total_wp_wire = 0
-total_wr_weight = [0, 0]
-total_wr_direct = [0, 0]
-# capacity
-total_rc_30 = 0
-total_rc_40 = 0
-total_rc_50 = 0
-total_rc_60 = 0
-total_rc_70 = 0
-total_rc_80 = 0
-total_rc_90 = 0
-total_rc_100 = 0
-total_rc_110 = 0
-total_rc_120 = 0
-total_junk = 0
-total_regulators = 0
 # diffusion
-diffusion_rate = .0005
+regulator_pool = [0.] * 40
+diffusion_rate_push = .01
+diffusion_rate_pull = .1
 
 # Error Vars
 # [0,1) ; the higher the more chance of error
@@ -158,15 +120,7 @@ def reset_globals():
     global num_joints_prepped, actual_joints_built, num_neurons_prepped
     global actual_neurons_built, num_sensors_prepped, actual_sensors_built
     global num_wires_prepped, actual_wires_built, read_codons
-    global regulators_built, total_updates, total_br_size, total_br_s_num
-    global total_br_j_num, total_br_n_num, total_br_s_loc, total_br_j_loc
-    global total_jr_inputs, total_jr_active, total_jr_active
-    global total_jr_free, total_jr_upper, total_jr_lower
-    global total_nr_inputs, total_nr_outputs, total_sr_outputs
-    global total_wr_direct, total_wr_weight, total_rc_30, total_rc_40
-    global total_rc_50, total_rc_60, total_rc_70, total_rc_80
-    global total_rc_90, total_rc_100, total_rc_110, total_rc_120
-    global total_junk, total_regulators
+    global regulators_built, total_updates, regulator_pool
     sequence_list = []
     parts_developing = []
     parts_diffusing = []
@@ -192,35 +146,7 @@ def reset_globals():
     read_codons = 0
     regulators_built = 0
     total_updates = 0
-    total_br_size = [0, 0]
-    total_br_s_num = [0, 0]
-    total_br_j_num = [0, 0]
-    total_br_n_num = [0, 0]
-    total_br_s_loc = [0, 0, 0, 0, 0, 0]
-    total_br_j_loc = [0, 0, 0, 0, 0, 0]
-    total_jr_inputs = [0, 0]
-    total_jr_active = [0, 0]
-    total_jr_free = [0, 0]
-    total_jr_upper = [0, 0]
-    total_jr_lower = [0, 0]
-    total_nr_inputs = [0, 0]
-    total_nr_outputs = [0, 0]
-    total_sr_outputs = [0, 0]
-    total_wr_weight = [0, 0]
-    total_wr_direct = [0, 0]
-    total_rc_30 = 0
-    total_rc_40 = 0
-    total_rc_50 = 0
-    total_rc_60 = 0
-    total_rc_70 = 0
-    total_rc_80 = 0
-    total_rc_90 = 0
-    total_rc_100 = 0
-    total_rc_110 = 0
-    total_rc_120 = 0
-    total_junk = 0
-    total_regulators = 0
-
+    regulator_pool = [0.] * 40
 
 ###############################################################################
 # Functions
@@ -276,6 +202,26 @@ class Part(object):
         self.rc120 = 0
         # Other codons
         self.codon_junk = 0
+        # BodyPart REs
+        self.reg_size = [0., 0.]  # add and subtract to compress into 1 var
+        self.reg_s_num = [0., 0.]    # +/- values
+        self.reg_j_num = [0., 0.]
+        self.reg_n_num = [0, 0]
+        self.reg_s_loc = [0., 0., 0., 0., 0., 0.]  # + x,y,z then -
+        self.reg_j_loc = [0., 0., 0., 0., 0., 0.]
+        # JointPart REs
+        self.reg_active_passive = [0., 0.]
+        self.reg_free_rigid = [0., 0.]
+        self.reg_upper_lower = [0., 0., 0., 0.]   # upper+/-, then lower...
+        self.reg_j_inputs = [0., 0.]  # NOTE: CHANGED
+        # NeuronPart REs
+        self.reg_n_inputs = [0., 0.]  # NOTE: CHANGED
+        self.reg_n_outputs = [0., 0.]  # NOTE: CHANGED
+        # SensorPart REs
+        self.reg_s_outputs = [0., 0.]  # NOTE: CHANGED
+        # WirePart REs
+        self.reg_weight = [0., 0.]
+        self.reg_direct = [0., 0.]
         # Data vars
         self.codons_read = 0
         self.num_updates = 0
@@ -431,99 +377,102 @@ class Part(object):
         else:
             raise TypeError('Only a Part subclass can use this!')
 
-    def codon_totals(self):
-        global total_br_size, total_br_s_num, total_br_j_num, total_br_n_num
-        global total_br_s_loc, total_br_j_loc, total_jr_inputs, total_jr_active
-        global total_jr_free, total_jr_upper, total_jr_lower, total_nr_inputs
-        global total_nr_outputs, total_sr_outputs, total_wr_weight
-        global total_wr_direct, total_rc_30, total_rc_40, total_rc_50
-        global total_rc_60, total_rc_70, total_rc_80, total_rc_90, total_rc_100
-        global total_rc_110, total_rc_120, total_junk, total_regulators
-        # body
-        # total_bp_sphere +=
-        # total_bp_cube +=
-        total_br_size[0] += self.codon_size[0]
-        total_br_size[1] += self.codon_size[1]
-        total_br_s_num[0] += self.codon_s_num[0]
-        total_br_s_num[1] += self.codon_s_num[1]
-        total_br_j_num[0] += self.codon_j_num[0]
-        total_br_j_num[1] += self.codon_j_num[1]
-        total_br_n_num[0] += self.codon_n_num[0]
-        total_br_n_num[1] += self.codon_n_num[1]
-        total_br_s_loc[0] += self.codon_s_loc[0]
-        total_br_s_loc[1] += self.codon_s_loc[1]
-        total_br_s_loc[2] += self.codon_s_loc[2]
-        total_br_s_loc[3] += self.codon_s_loc[3]
-        total_br_s_loc[4] += self.codon_s_loc[4]
-        total_br_s_loc[5] += self.codon_s_loc[5]
-        total_br_j_loc[0] += self.codon_j_loc[0]
-        total_br_j_loc[1] += self.codon_j_loc[1]
-        total_br_j_loc[2] += self.codon_j_loc[2]
-        total_br_j_loc[3] += self.codon_j_loc[3]
-        total_br_j_loc[4] += self.codon_j_loc[4]
-        total_br_j_loc[5] += self.codon_j_loc[5]
-        # joint
-        # total_jp_hinge +=
-        total_jr_inputs[0] += self.codon_j_inputs[0]
-        total_jr_inputs[1] += self.codon_j_inputs[1]
-        total_jr_active[0] += self.codon_active_passive[0]
-        total_jr_active[1] += self.codon_active_passive[1]
-        total_jr_free[0] += self.codon_free_rigid[0]
-        total_jr_free[1] += self.codon_free_rigid[1]
-        total_jr_upper[0] += self.codon_upper_lower[0]
-        total_jr_upper[1] += self.codon_upper_lower[1]
-        total_jr_lower[0] += self.codon_upper_lower[2]
-        total_jr_lower[1] += self.codon_upper_lower[3]
-        # neurons
-        # total_np_neuron +=
-        total_nr_inputs[0] += self.codon_n_inputs[0]
-        total_nr_inputs[1] += self.codon_n_inputs[1]
-        total_nr_outputs[0] += self.codon_n_outputs[0]
-        total_nr_outputs[1] += self.codon_n_outputs[1]
-        # sensor
-        # total_sp_touch +=
-        total_sr_outputs[0] += self.codon_s_outputs[0]
-        total_sr_outputs[1] += self.codon_s_outputs[1]
-        # wire
-        # total_wp_wire +=
-        total_wr_weight[0] += self.codon_weight[0]
-        total_wr_weight[1] += self.codon_weight[1]
-        total_wr_direct[0] += self.codon_direct[0]
-        total_wr_direct[1] += self.codon_direct[1]
-        # capacity
-        total_rc_30 += self.rc30
-        total_rc_40 += self.rc40
-        total_rc_50 += self.rc50
-        total_rc_60 += self.rc60
-        total_rc_70 += self.rc70
-        total_rc_80 += self.rc80
-        total_rc_90 += self.rc90
-        total_rc_100 += self.rc100
-        total_rc_110 += self.rc110
-        total_rc_120 += self.rc120
-        # junk
-        total_junk += self.codon_junk
-        # total
-        total_regulators += self.regulators_per_update
+    def get_push_list(self):
+        global regulator_pool
+        push_list = []
+        # BodyPartREs
+        push_list += self.reg_size
+        push_list += self.reg_s_num
+        push_list += self.reg_j_num
+        push_list += self.reg_n_num
+        push_list += self.reg_s_loc
+        push_list += self.reg_j_loc
+        # JointPart REs
+        push_list += self.reg_active_passive
+        push_list += self.reg_free_rigid
+        push_list += self.reg_upper_lower
+        push_list += self.reg_j_inputs
+        # NeuronPart REs
+        push_list += self.reg_n_inputs
+        push_list += self.reg_n_outputs
+        # SensorPart REs
+        push_list += self.reg_s_outputs
+        # WirePart REs
+        push_list += self.reg_weight
+        push_list += self.reg_direct
+        # if push_list > 0:
+        #    print "PHL:", push_list
+        push_list = [math.floor(i * diffusion_rate_push) for i in push_list]
+        # if push_list > 0:
+        #    print "PHL flr:", push_list
+        regulator_pool = [i + j for i, j in
+                          itertools.izip(regulator_pool, push_list)]
+        # if sum(regulator_pool) > 0:
+        #    print "RP af PH:", regulator_pool
+        return push_list
 
+    def get_pull_list(self):
+        global regulator_pool
+        pull_list = [math.floor(i * diffusion_rate_pull)
+                     for i in regulator_pool]
+        # if sum(pull_list) > 0:
+        #    print "PLL flr:", pull_list
+        regulator_pool = [i - j for i, j in
+                          itertools.izip(regulator_pool, pull_list)]
+        # if sum(regulator_pool) > 0:
+        #    print "RP af PL:", regulator_pool
+        return pull_list
 
-class BodyPart(Part):
-    def __init__(self, gene_sequence, kind):
-        Part.__init__(self, gene_sequence)
-        self.kind = kind
-        self.reg_size = [0, 0]  # add and subtract to compress into 1 var
-        self.reg_s_num = [0., 0.]    # +/- values
-        self.reg_j_num = [0., 0.]
-        self.reg_n_num = [0, 0]
-        self.reg_s_loc = [0., 0., 0.]   # x,y,z values
-        self.reg_j_loc = [0., 0., 0.]
-        self.s_mount_loc = []
-        self.s_mount_num = 0
-        self.j_mount_loc = []
-        self.j_mount_num = 0
+    def use_phpl_list(self, phlst, pllst):
+        self.reg_size[0] += phlst[0] - pllst[0]
+        self.reg_size[1] += phlst[1] - pllst[1]
+        self.reg_s_num[0] += phlst[2] - pllst[2]
+        self.reg_s_num[1] += phlst[3] - pllst[3]
+        self.reg_j_num[0] += phlst[4] - pllst[4]
+        self.reg_j_num[1] += phlst[5] - pllst[5]
+        self.reg_n_num[0] += phlst[6] - pllst[6]
+        self.reg_n_num[1] += phlst[7] - pllst[7]
+        self.reg_s_loc[0] += phlst[8] - pllst[8]
+        self.reg_s_loc[1] += phlst[9] - phlst[9]
+        self.reg_s_loc[2] += phlst[10] - phlst[10]
+        self.reg_s_loc[3] += phlst[11] - phlst[11]
+        self.reg_s_loc[4] += phlst[12] - phlst[12]
+        self.reg_s_loc[5] += phlst[13] - phlst[13]
+        self.reg_j_loc[0] += phlst[14] - phlst[14]
+        self.reg_j_loc[1] += phlst[15] - phlst[15]
+        self.reg_j_loc[2] += phlst[16] - phlst[16]
+        self.reg_j_loc[3] += phlst[17] - phlst[17]
+        self.reg_j_loc[4] += phlst[18] - phlst[18]
+        self.reg_j_loc[5] += phlst[19] - phlst[19]
+        # JointPart REs
+        self.reg_active_passive[0] += phlst[20] - pllst[20]
+        self.reg_active_passive[1] += phlst[21] - pllst[21]
+        self.reg_free_rigid[0] += phlst[22] - pllst[22]
+        self.reg_free_rigid[1] += phlst[23] - pllst[23]
+        self.reg_upper_lower[0] += phlst[24] - pllst[24]
+        self.reg_upper_lower[1] += phlst[25] - pllst[25]
+        self.reg_upper_lower[2] += phlst[26] - pllst[26]
+        self.reg_upper_lower[3] += phlst[27] - pllst[27]
+        self.reg_j_inputs[0] += phlst[28] - pllst[28]
+        self.reg_j_inputs[1] += phlst[29] - pllst[29]
+        # NeuronPart REs
+        self.reg_n_inputs[0] += phlst[30] - pllst[30]
+        self.reg_n_inputs[1] += phlst[31] - pllst[31]
+        self.reg_n_outputs[0] += phlst[32] - pllst[32]
+        self.reg_n_outputs[1] += phlst[33] - pllst[33]
+        # SensorPart REs
+        self.reg_s_outputs[0] += phlst[34] - pllst[34]
+        self.reg_s_outputs[1] += phlst[35] - pllst[35]
+        # WirePart REs
+        self.reg_weight[0] += phlst[36] - pllst[36]
+        self.reg_weight[1] += phlst[37] - pllst[37]
+        self.reg_direct[0] += phlst[38] - pllst[38]
+        self.reg_direct[1] += phlst[39] - pllst[39]
 
-    def update(self):
+    def _update(self):
         self.num_updates += 1
+        self.regulatory_elements += self.regulators_per_update
+        # BodyPart REs
         self.reg_size[0] += self.codon_size[0]
         self.reg_size[1] += self.codon_size[1]
         self.reg_s_num[0] += self.codon_s_num[0]
@@ -532,14 +481,70 @@ class BodyPart(Part):
         self.reg_j_num[1] += self.codon_j_num[1]
         self.reg_n_num[0] += self.codon_n_num[0]
         self.reg_n_num[1] += self.codon_n_num[1]
-        self.reg_s_loc[0] += (self.codon_s_loc[0] - self.codon_s_loc[3])
-        self.reg_s_loc[1] += (self.codon_s_loc[1] - self.codon_s_loc[4])
-        self.reg_s_loc[2] += (self.codon_s_loc[2] - self.codon_s_loc[5])
-        self.reg_j_loc[0] += (self.codon_j_loc[0] - self.codon_j_loc[3])
-        self.reg_j_loc[1] += (self.codon_j_loc[1] - self.codon_j_loc[4])
-        self.reg_j_loc[2] += (self.codon_j_loc[2] - self.codon_j_loc[5])
+        self.reg_s_loc[0] += self.codon_s_loc[0]
+        self.reg_s_loc[1] += self.codon_s_loc[1]
+        self.reg_s_loc[2] += self.codon_s_loc[2]
+        self.reg_s_loc[3] += self.codon_s_loc[3]
+        self.reg_s_loc[4] += self.codon_s_loc[4]
+        self.reg_s_loc[5] += self.codon_s_loc[5]
+        self.reg_j_loc[0] += self.codon_j_loc[0]
+        self.reg_j_loc[1] += self.codon_j_loc[1]
+        self.reg_j_loc[2] += self.codon_j_loc[2]
+        self.reg_j_loc[3] += self.codon_j_loc[3]
+        self.reg_j_loc[4] += self.codon_j_loc[4]
+        self.reg_j_loc[5] += self.codon_j_loc[5]
+        # JointPart REs
+        self.reg_active_passive[0] += self.codon_active_passive[0]
+        self.reg_active_passive[1] += self.codon_active_passive[1]
+        self.reg_free_rigid[0] += self.codon_free_rigid[0]
+        self.reg_free_rigid[1] += self.codon_free_rigid[1]
+        self.reg_upper_lower[0] += self.codon_upper_lower[0]
+        self.reg_upper_lower[1] += self.codon_upper_lower[1]
+        self.reg_upper_lower[2] += self.codon_upper_lower[2]
+        self.reg_upper_lower[3] += self.codon_upper_lower[3]
+        self.reg_j_inputs[0] += self.codon_j_inputs[0]
+        self.reg_j_inputs[1] += self.codon_j_inputs[1]
+        # NeuronPart REs
+        self.reg_n_inputs[0] += self.codon_n_inputs[0]
+        self.reg_n_inputs[1] += self.codon_n_inputs[1]
+        self.reg_n_outputs[0] += self.codon_n_outputs[0]
+        self.reg_n_outputs[1] += self.codon_n_outputs[1]
+        # SensorPart REs
+        self.reg_s_outputs[0] += self.codon_s_outputs[0]
+        self.reg_s_outputs[1] += self.codon_s_outputs[1]
+        # WirePart REs
+        self.reg_weight[0] += self.codon_weight[0]
+        self.reg_weight[1] += self.codon_weight[1]
+        self.reg_direct[0] += self.codon_direct[0]
+        self.reg_direct[1] += self.codon_direct[1]
+        # Diffusion Stuff
+        phlst = self.get_push_list()
+        pllst = self.get_pull_list()
+        self.use_phpl_list(phlst, pllst)
+        self.regulatory_elements += sum(phlst) - sum(pllst)
+
+
+class BodyPart(Part):
+    def __init__(self, gene_sequence, kind):
+        Part.__init__(self, gene_sequence)
+        self.kind = kind
+        self.j_mount_loc = []
+        self.j_mount_num = 0
+        self.j_loc_holder = [0., 0., 0.]
+        self.s_mount_loc = []
+        self.s_mount_num = 0
+        self.s_loc_holder = [0., 0., 0.]
+
+    def calculate_mount_info(self):
         # Store last runs sensor and joint mount numbers
         old_s_num, old_j_num = self.s_mount_num, self.j_mount_num
+        # calculate current sensor and joint locs
+        self.j_loc_holder = [self.reg_j_loc[0] - self.reg_j_loc[3],
+                             self.reg_j_loc[1] - self.reg_j_loc[4],
+                             self.reg_j_loc[2] - self.reg_j_loc[5]]
+        self.s_loc_holder = [self.reg_s_loc[0] - self.reg_s_loc[3],
+                             self.reg_s_loc[1] - self.reg_s_loc[4],
+                             self.reg_s_loc[2] - self.reg_s_loc[5]]
         # Update current sensor and joint mount numbers
         # Sensor
         try:
@@ -558,121 +563,33 @@ class BodyPart(Part):
         # If there's a change in amount of sesnor mounts,
         # append a normalized location vector
         if ((self.s_mount_num - old_s_num) >= 1):
-            norm = math.sqrt(self.reg_s_loc[0]**2 + self.reg_s_loc[1]**2 +
-                             self.reg_s_loc[2]**2)
+            norm = math.sqrt(self.s_loc_holder[0]**2 +
+                             self.s_loc_holder[1]**2 +
+                             self.s_loc_holder[2]**2)
             try:
-                location = [round(self.reg_s_loc[0]/norm, 3),
-                            round(self.reg_s_loc[1]/norm, 3),
-                            round(self.reg_s_loc[2]/norm, 3)]
+                location = [round(self.s_loc_holder[0]/norm, 3),
+                            round(self.s_loc_holder[1]/norm, 3),
+                            round(self.s_loc_holder[2]/norm, 3)]
             except ZeroDivisionError:
                 location = [0., 0., 0.]
             self.s_mount_loc.append(location)
         # Same for joints
         if ((self.j_mount_num - old_j_num) >= 1):
-            norm = math.sqrt(self.reg_j_loc[0]**2 +
-                             self.reg_j_loc[1]**2 +
-                             self.reg_j_loc[2]**2)
+            norm = math.sqrt(self.j_loc_holder[0]**2 +
+                             self.j_loc_holder[1]**2 +
+                             self.j_loc_holder[2]**2)
             try:
-                location = [round(self.reg_j_loc[0]/norm, 3),
-                            round(self.reg_j_loc[1]/norm, 3),
-                            round(self.reg_j_loc[2]/norm, 3)]
+                location = [round(self.j_loc_holder[0]/norm, 3),
+                            round(self.j_loc_holder[1]/norm, 3),
+                            round(self.j_loc_holder[2]/norm, 3)]
             except ZeroDivisionError:
                 location = [0., 0., 0.]
             self.j_mount_loc.append(location)
-        self.regulatory_elements += self.regulators_per_update
 
-    def diffuse_codons(self):
-        global total_br_size, total_br_s_num, total_br_j_num, total_br_n_num
-        global total_br_s_loc, total_br_j_loc, total_junk, total_regulators
-        nu = self.num_updates
-        self.regulatory_elements -= math.floor(self.regulatory_elements *
-                                               diffusion_rate*nu)
-        if nu == 0:
-            pass
-        else:
-            while (self.regulatory_elements <= self.capacity):
-                self.num_diffuses += 1
-                self.reg_size[0] += total_br_size[0] * nu
-                self.reg_size[1] += total_br_size[1] * nu
-                self.reg_s_num[0] += total_br_s_num[0] * nu
-                self.reg_s_num[1] += total_br_s_num[1] * nu
-                self.reg_j_num[0] += total_br_j_num[0] * nu
-                self.reg_j_num[1] += total_br_j_num[1] * nu
-                self.reg_n_num[0] += total_br_n_num[0] * nu
-                self.reg_n_num[1] += total_br_n_num[1] * nu
-                self.reg_s_loc[0] += (total_br_s_loc[0] -
-                                      total_br_s_loc[3]) * nu
-                self.reg_s_loc[1] += (total_br_s_loc[1] -
-                                      total_br_s_loc[4]) * nu
-                self.reg_s_loc[2] += (total_br_s_loc[2] -
-                                      total_br_s_loc[5]) * nu
-                self.reg_j_loc[0] += (total_br_j_loc[0] -
-                                      total_br_j_loc[3]) * nu
-                self.reg_j_loc[1] += (total_br_j_loc[1] -
-                                      total_br_j_loc[4]) * nu
-                self.reg_j_loc[2] += (total_br_j_loc[2] -
-                                      total_br_j_loc[5]) * nu
-                # Store last runs sensor and joint mount numbers
-                old_s_num, old_j_num = self.s_mount_num, self.j_mount_num
-                # Update current sensor and joint mount numbers
-                # Sensor
-                try:
-                    self.s_mount_num = round(self.reg_s_num[0] /
-                                             self.reg_s_num[1])
-                except ZeroDivisionError:
-                    self.s_mount_num = round(self.reg_s_num[0]/1)
-                if self.s_mount_num < 1:
-                    self.s_mount_num = 0
-                # Joint
-                try:
-                    self.j_mount_num = round(self.reg_j_num[0] /
-                                             self.reg_j_num[1])
-                except ZeroDivisionError:
-                    self.j_mount_num = round(self.reg_j_num[0]/1)
-                if self.j_mount_num < 1:
-                    self.j_mount_num = 0
-                # If there's a change in amount of sesnor mounts,
-                # append a normalized location vector
-                if ((self.s_mount_num - old_s_num) >= 1):
-                    norm = math.sqrt(self.reg_s_loc[0]**2 +
-                                     self.reg_s_loc[1]**2 +
-                                     self.reg_s_loc[2]**2)
-                    try:
-                        location = [round(self.reg_s_loc[0]/norm, 3),
-                                    round(self.reg_s_loc[1]/norm, 3),
-                                    round(self.reg_s_loc[2]/norm, 3)]
-                    except ZeroDivisionError:
-                        location = [0., 0., 0.]
-                    self.s_mount_loc.append(location)
-                # Same with joint mounts
-                if ((self.j_mount_num - old_j_num) >= 1):
-                    norm = math.sqrt(self.reg_j_loc[0]**2 +
-                                     self.reg_j_loc[1]**2 +
-                                     self.reg_j_loc[2]**2)
-                    try:
-                        location = [round(self.reg_j_loc[0]/norm, 3),
-                                    round(self.reg_j_loc[1]/norm, 3),
-                                    round(self.reg_j_loc[2]/norm, 3)]
-                    except ZeroDivisionError:
-                        location = [0., 0., 0.]
-                    self.j_mount_loc.append(location)
-                self.regulatory_elements += total_regulators * nu
-            self.reg_size[0] = math.floor(self.reg_size[0])
-            self.reg_size[1] = math.floor(self.reg_size[1])
-            self.reg_j_num[0] = math.floor(self.reg_j_num[0])
-            self.reg_j_num[1] = math.floor(self.reg_j_num[1])
-            self.reg_n_num[0] = math.floor(self.reg_n_num[0])
-            self.reg_n_num[1] = math.floor(self.reg_n_num[1])
-            self.reg_s_num[0] = math.floor(self.reg_s_num[0])
-            self.reg_s_num[0] = math.floor(self.reg_s_num[1])
-            self.reg_j_loc[0] = math.floor(self.reg_j_loc[0])
-            self.reg_j_loc[1] = math.floor(self.reg_j_loc[1])
-            self.reg_j_loc[2] = math.floor(self.reg_j_loc[2])
-            self.reg_s_loc[0] = math.floor(self.reg_s_loc[0])
-            self.reg_s_loc[1] = math.floor(self.reg_s_loc[1])
-            self.reg_s_loc[2] = math.floor(self.reg_s_loc[2])
-            self.regulatory_elements = math.floor(self.regulatory_elements)
-    
+    def update(self):
+        self._update()
+        self.calculate_mount_info()
+
     def get_blueprint(self):
         """Returns final measurements for BodyPart.
 
@@ -716,80 +633,33 @@ class BodyPart(Part):
 class JointPart(Part):
     def __init__(self, gene_sequence):
         Part.__init__(self, gene_sequence)
-        self.reg_active_passive = [0, 0]
-        self.reg_free_rigid = [0, 0]
-        self.reg_upper_lower = [0., 0., 0., 0.]   # upper+/-, then lower...
-        self.reg_inputs = [0, 0]
 
     def update(self):
-        self.num_updates += 1
-        self.reg_active_passive[0] += self.codon_active_passive[0]
-        self.reg_active_passive[1] += self.codon_active_passive[1]
-        self.reg_free_rigid[0] += self.codon_free_rigid[0]
-        self.reg_free_rigid[1] += self.codon_free_rigid[1]
-        self.reg_upper_lower[0] += self.codon_upper_lower[0]
-        self.reg_upper_lower[1] += self.codon_upper_lower[1]
-        self.reg_upper_lower[2] += self.codon_upper_lower[2]
-        self.reg_upper_lower[3] += self.codon_upper_lower[3]
-        self.reg_inputs[0] += self.codon_j_inputs[0]
-        self.reg_inputs[1] += self.codon_j_inputs[1]
-        self.regulatory_elements += self.regulators_per_update
-
-    def diffuse_codons(self):
-        global total_jr_inputs, total_jr_active, total_jr_free, total_jr_upper
-        global total_jr_lower, total_junk, total_regulators
-        nu = self.num_updates
-        self.regulatory_elements -= math.floor(self.regulatory_elements *
-                                               diffusion_rate * nu)
-        if nu == 0:
-            pass
-        else:
-            while (self.regulatory_elements <= self.capacity):
-                self.num_diffuses += 1
-                self.reg_active_passive[0] += total_jr_active[0] * nu
-                self.reg_active_passive[1] += total_jr_active[1] * nu
-                self.reg_free_rigid[0] += total_jr_free[0] * nu
-                self.reg_free_rigid[1] += total_jr_free[1] * nu
-                self.reg_upper_lower[0] += total_jr_upper[0] * nu
-                self.reg_upper_lower[1] += total_jr_upper[1] * nu
-                self.reg_upper_lower[2] += total_jr_lower[0] * nu
-                self.reg_upper_lower[3] += total_jr_lower[1] * nu
-                self.reg_inputs[0] += total_jr_inputs[0] * nu
-                self.reg_inputs[1] += total_jr_inputs[1] * nu
-                self.regulatory_elements += total_regulators * nu
-            self.reg_active_passive[0] = math.floor(self.reg_active_passive[0])
-            self.reg_active_passive[1] = math.floor(self.reg_active_passive[1])
-            self.reg_free_rigid[0] = math.floor(self.reg_free_rigid[0])
-            self.reg_free_rigid[1] = math.floor(self.reg_free_rigid[1])
-            self.reg_upper_lower[0] = math.floor(self.reg_upper_lower[0])
-            self.reg_upper_lower[1] = math.floor(self.reg_upper_lower[1])
-            self.reg_upper_lower[2] = math.floor(self.reg_upper_lower[2])
-            self.reg_upper_lower[3] = math.floor(self.reg_upper_lower[3])
-            self.reg_inputs[0] = math.floor(self.reg_inputs[0])
-            self.reg_inputs[1] = math.floor(self.reg_inputs[1])
-            self.regulatory_elements = math.floor(self.regulatory_elements)
+        self._update()
 
     def get_blueprint(self):
         """Returns final measurements for JointPart
-        
+
         Includes whether joint gets a motor; whether it is free or rigid;
         and one value for each limit in radians (upper/lower)"""
         motor = (self.reg_active_passive[0] - self.reg_active_passive[1]) > 0
         free = (self.reg_free_rigid[0] - self.reg_free_rigid[1]) > 0
         try:
-            upper_ratio = (float(self.reg_upper_lower[0]) -
-                           self.reg_upper_lower[1]) / (self.reg_upper_lower[0] + 
-                                                       self.reg_upper_lower[1])
+            upper_ratio = ((float(self.reg_upper_lower[0]) -
+                           self.reg_upper_lower[1]) /
+                           (self.reg_upper_lower[0] +
+                            self.reg_upper_lower[1]))
             upper_limit = upper_ratio * math.pi
         except ZeroDivisionError:
-            upper_ratio = .5 * math.pi
+            upper_limit = .5 * math.pi
         try:
-            lower_ratio = (float(self.reg_upper_lower[2]) -
-                           self.reg_upper_lower[3]) / (self.reg_upper_lower[2] +
-                                                       self.reg_upper_lower[3])
+            lower_ratio = ((float(self.reg_upper_lower[2]) -
+                           self.reg_upper_lower[3]) /
+                           (self.reg_upper_lower[2] +
+                            self.reg_upper_lower[3]))
             lower_limit = lower_ratio * math.pi
         except ZeroDivisionError:
-            lower_ratio = -.5 * math.pi
+            lower_limit = -.5 * math.pi
         if free:
             pass
         else:
@@ -797,7 +667,9 @@ class JointPart(Part):
                 lower_limit = upper_limit
             else:
                 upper_limit = lower_limit
-        inputs = self.reg_inputs[0] - self.reg_inputs[1]
+        # NEED TO CHANGE THIS \/
+        inputs = self.reg_j_inputs[0] - self.reg_j_inputs[1]
+        # NEED TO CHANGE THIS ^
         if inputs < 0:
             inputs = 0
         self.blueprint = [motor, free, round(upper_limit, 4),
@@ -808,37 +680,9 @@ class JointPart(Part):
 class NeuronPart(Part):
     def __init__(self, gene_sequence):
         Part.__init__(self, gene_sequence)
-        self.reg_inputs = [0, 0]
-        self.reg_outputs = [0, 0]
 
     def update(self):
-        self.num_updates += 1
-        self.reg_inputs[0] += self.codon_n_inputs[0]
-        self.reg_inputs[1] += self.codon_n_inputs[1]
-        self.reg_outputs[0] += self.codon_n_outputs[0]
-        self.reg_outputs[1] += self.codon_n_outputs[1]
-        self.regulatory_elements += self.regulators_per_update
-
-    def diffuse_codons(self):
-        global total_nr_inputs, total_nr_outputs, total_junk, total_regulators
-        nu = self.num_updates
-        self.regulatory_elements -= math.floor(self.regulatory_elements *
-                                               diffusion_rate*nu)
-        if nu == 0:
-            pass
-        else:
-            while (self.regulatory_elements <= self.capacity):
-                self.num_diffuses += 1
-                self.reg_inputs[0] += total_nr_inputs[0] * nu
-                self.reg_inputs[1] += total_nr_inputs[1] * nu
-                self.reg_outputs[0] += total_nr_outputs[0] * nu
-                self.reg_outputs[1] += total_nr_outputs[1] * nu
-                self.regulatory_elements += total_regulators * nu
-                self.reg_inputs[0] = math.floor(self.reg_inputs[0])
-            self.reg_inputs[1] = math.floor(self.reg_inputs[1])
-            self.reg_outputs[0] = math.floor(self.reg_outputs[0])
-            self.reg_outputs[1] = math.floor(self.reg_outputs[1])
-            self.regulatory_elements = math.floor(self.regulatory_elements)
+        self._update()
 
     def get_blueprint(self):
         """Returns final measurements for NeuronPart
@@ -846,13 +690,14 @@ class NeuronPart(Part):
         Includes number of inputs, number of outputs, and whether its
         hidden (whether its outputs can go to motors, or neurons)"""
         try:
-            input_slots = int(round(self.reg_inputs[0]/self.reg_inputs[1]))
+            input_slots = int(round(self.reg_n_inputs[0]/self.reg_n_inputs[1]))
         except ZeroDivisionError:
-            input_slots = int(round(self.reg_inputs[0]/1))
+            input_slots = int(round(self.reg_n_inputs[0]/1))
         try:
-            output_slots = int(round(self.reg_outputs[0]/self.reg_inputs[1]))
+            output_slots = int(round(self.reg_n_outputs[0] /
+                                     self.reg_n_inputs[1]))
         except ZeroDivisionError:
-            output_slots = int(round(self.reg_outputs[0]/1))
+            output_slots = int(round(self.reg_n_outputs[0]/1))
 
         self.blueprint = [input_slots, output_slots]
         return self.blueprint
@@ -861,39 +706,19 @@ class NeuronPart(Part):
 class SensorPart(Part):
     def __init__(self, gene_sequence):
         Part.__init__(self, gene_sequence)
-        self.reg_outputs = [0., 0.]
 
     def update(self):
-        self.num_updates += 1
-        self.reg_outputs[0] += self.codon_s_outputs[0]
-        self.reg_outputs[1] += self.codon_s_outputs[1]
-        self.regulatory_elements += self.regulators_per_update
-
-    def diffuse_codons(self):
-        global total_sr_outputs, total_junk, total_regulators
-        nu = self.num_updates
-        self.regulatory_elements -= math.floor(self.regulatory_elements *
-                                               diffusion_rate*nu)
-        if nu == 0:
-            pass
-        else:
-            while (self.regulatory_elements <= self.capacity):
-                self.num_diffuses += 1
-                self.reg_outputs[0] += total_sr_outputs[0] * nu
-                self.reg_outputs[1] += total_sr_outputs[1] * nu
-                self.regulatory_elements += total_regulators * nu
-            self.reg_outputs[0] = math.floor(self.reg_outputs[0])
-            self.reg_outputs[1] = math.floor(self.reg_outputs[1])
-            self.regulatory_elements = math.floor(self.regulatory_elements)
+        self._update()
 
     def get_blueprint(self):
         """Returns final measurements for SensorPart
-        
+
         This includes: Number of output slots"""
         try:
-            output_slots = int(round(self.reg_outputs[0]/self.reg_outputs[1]))
+            output_slots = int(round(self.reg_s_outputs[0] /
+                                     self.reg_s_outputs[1]))
         except ZeroDivisionError:
-            output_slots = int(round(self.reg_outputs[0]/1))
+            output_slots = int(round(self.reg_s_outputs[0]/1))
         self.blueprint = [output_slots]
         return self.blueprint
 
@@ -901,36 +726,9 @@ class SensorPart(Part):
 class WirePart(Part):
     def __init__(self, gene_sequence):
         Part.__init__(self, gene_sequence)
-        self.reg_weight = [0, 0]
-        self.reg_direct = [0, 0]
 
     def update(self):
-        self.num_updates += 1
-        self.reg_weight[0] += self.codon_weight[0]
-        self.reg_weight[1] += self.codon_weight[1]
-        self.reg_direct[0] += self.codon_direct[0]
-        self.reg_direct[1] += self.codon_direct[1]
-        self.regulatory_elements += self.regulators_per_update
-
-    def diffuse_codons(self):
-        global total_wr_weight, total_wr_direct, total_junk, total_regulators
-        nu = self.num_updates
-        self.regulatory_elements -= math.floor(self.regulatory_elements *
-                                               diffusion_rate * nu)
-        if nu == 0:
-            pass
-        else:
-            while (self.regulatory_elements <= self.capacity):
-                self.num_diffuses += 1
-                self.reg_weight[0] += total_wr_weight[0] * nu
-                self.reg_weight[1] += total_wr_weight[1] * nu
-                self.reg_direct[0] += total_wr_direct[0] * nu
-                self.reg_direct[1] += total_wr_direct[1] * nu
-                self.regulatory_elements += total_regulators * nu
-            self.reg_weight = math.floor(self.reg_weight)
-            self.reg_direct[0] = math.floor(self.reg_direct[0])
-            self.reg_direct[1] = math.floor(self.reg_direct[1])
-            self.regulatory_elements = math.floor(self.regulatory_elements)
+        self._update()
 
     def get_blueprint(self):
         """Returns final measurements for WirePart
@@ -948,82 +746,6 @@ class WirePart(Part):
         return self.blueprint
 
 
-def codon_diffuse_totals():
-    global total_br_size, total_br_s_num, total_br_j_num, total_br_n_num
-    global total_br_s_loc, total_br_j_loc, total_jr_inputs, total_jr_active
-    global total_jr_free, total_jr_upper, total_jr_lower, total_nr_inputs
-    global total_nr_outputs, total_sr_outputs, total_wr_weight, total_wr_direct
-    global total_rc_30, total_rc_40, total_rc_50, total_rc_60, total_rc_70
-    global total_rc_80, total_rc_90, total_rc_100, total_rc_110, total_rc_120
-    global total_junk, total_regulators
-    # body
-    # total_bp_sphere +=
-    # total_bp_cube +=
-    total_br_size[0] = diffusion_rate*total_br_size[0]
-    total_br_size[1] = diffusion_rate*total_br_size[1]
-    total_br_s_num[0] = diffusion_rate*total_br_s_num[0]
-    total_br_s_num[1] = diffusion_rate*total_br_s_num[1]
-    total_br_j_num[0] = diffusion_rate*total_br_j_num[0]
-    total_br_j_num[1] = diffusion_rate*total_br_j_num[1]
-    total_br_n_num[0] = diffusion_rate*total_br_n_num[0]
-    total_br_n_num[1] = diffusion_rate*total_br_n_num[1]
-    total_br_s_loc[0] = diffusion_rate*total_br_s_loc[0]
-    total_br_s_loc[1] = diffusion_rate*total_br_s_loc[1]
-    total_br_s_loc[2] = diffusion_rate*total_br_s_loc[2]
-    total_br_s_loc[3] = diffusion_rate*total_br_s_loc[3]
-    total_br_s_loc[4] = diffusion_rate*total_br_s_loc[4]
-    total_br_s_loc[5] = diffusion_rate*total_br_s_loc[5]
-    total_br_j_loc[0] = diffusion_rate*total_br_j_loc[0]
-    total_br_j_loc[1] = diffusion_rate*total_br_j_loc[1]
-    total_br_j_loc[2] = diffusion_rate*total_br_j_loc[2]
-    total_br_j_loc[3] = diffusion_rate*total_br_j_loc[3]
-    total_br_j_loc[4] = diffusion_rate*total_br_j_loc[4]
-    total_br_j_loc[5] = diffusion_rate*total_br_j_loc[5]
-    # joint
-    # total_jp_hinge +=
-    total_jr_inputs[0] = diffusion_rate*total_jr_inputs[0]
-    total_jr_inputs[1] = diffusion_rate*total_jr_inputs[1]
-    total_jr_active[0] = diffusion_rate*total_jr_active[0]
-    total_jr_active[1] = diffusion_rate*total_jr_active[1]
-    total_jr_free[0] = diffusion_rate*total_jr_free[0]
-    total_jr_free[1] = diffusion_rate*total_jr_free[1]
-    total_jr_upper[0] = diffusion_rate*total_jr_upper[0]
-    total_jr_upper[1] = diffusion_rate*total_jr_upper[1]
-    total_jr_lower[0] = diffusion_rate*total_jr_lower[0]
-    total_jr_lower[1] = diffusion_rate*total_jr_lower[1]
-    # neurons
-    # total_np_neuron +=
-    total_nr_inputs[0] = diffusion_rate*total_nr_inputs[0]
-    total_nr_inputs[1] = diffusion_rate*total_nr_inputs[1]
-    total_nr_outputs[0] = diffusion_rate*total_nr_outputs[0]
-    total_nr_outputs[1] = diffusion_rate*total_nr_outputs[1]
-    # sensor
-    # total_sp_touch +=
-    total_sr_outputs[0] = diffusion_rate*total_sr_outputs[0]
-    total_sr_outputs[1] = diffusion_rate*total_sr_outputs[1]
-    # wire
-    # total_wp_wire +=
-    total_wr_weight[0] = diffusion_rate*total_wr_weight[0]
-    total_wr_weight[1] = diffusion_rate*total_wr_weight[1]
-    total_wr_direct[0] = diffusion_rate*total_wr_direct[0]
-    total_wr_direct[1] = diffusion_rate*total_wr_direct[1]
-    # capacity
-    total_rc_30 = diffusion_rate*total_rc_30
-    total_rc_40 = diffusion_rate*total_rc_40
-    total_rc_50 = diffusion_rate*total_rc_50
-    total_rc_60 = diffusion_rate*total_rc_60
-    total_rc_70 = diffusion_rate*total_rc_70
-    total_rc_80 = diffusion_rate*total_rc_80
-    total_rc_90 = diffusion_rate*total_rc_90
-    total_rc_100 = diffusion_rate*total_rc_100
-    total_rc_110 = diffusion_rate*total_rc_110
-    total_rc_120 = diffusion_rate*total_rc_120
-    # junk
-    total_junk = diffusion_rate*total_junk
-    # total
-    total_regulators = diffusion_rate*total_regulators
-
-
 def reproduce_with_errors(gene_code):
     """Returns given gene code with some errors.
 
@@ -1032,10 +754,10 @@ def reproduce_with_errors(gene_code):
     new_gene_code = ''
     for char in gene_code:
         if (mutation_error < random.random() and mutation_error > 0):
-            new_gene_code +=  str(char)
+            new_gene_code += str(char)
         else:
             error_bit = (int(char) + random.randrange(1, 4)) % 4
-            new_gene_code +=  str(error_bit)
+            new_gene_code += str(error_bit)
     return new_gene_code
 
 
@@ -1050,7 +772,7 @@ def transcribe_with_errors(gene_code):
             new_gene_code += str(char)
         else:
             error_bit = (int(char) + random.randrange(1, 4)) % 4
-            new_gene_code +=  str(error_bit)
+            new_gene_code += str(error_bit)
     return new_gene_code
 
 
@@ -1467,26 +1189,16 @@ def main(gene_code):
         i.calculate_capacity()
         i.count_regulators()
         i.init_codons()
-    # print total_regulators
     while(parts_developing):
         for i in parts_developing:
             if i.capacity <= (i.regulatory_elements + i.regulators_per_update):
-                i.codon_totals()
-                parts_diffusing.append(i)
+                print i, i.regulatory_elements, i.capacity, regulator_pool
+                # print "REs:", i.regulatory_elements
                 parts_developing.remove(i)
+                parts_built.append(i)
             else:
+                # print i, i.regulatory_elements, i.capacity, regulator_pool
                 i.update()
-    # print total_regulators
-    codon_diffuse_totals()
-    # print total_regulators
-    for i in parts_diffusing:
-        # print i, i.regulatory_elements, i.capacity
-        # print i.num_updates, i.regulators_per_update
-        i.diffuse_codons()
-        parts_built.append(i)
-        # print i, i.regulatory_elements, i.capacity, i.num_diffuses
-        # print total_regulators, total_regulators*i.num_updates,
-        # print total_regulators*i.num_updates*i.num_diffuses
     setup_blueprints(parts_built)
     format_output()
     output_to_file()
@@ -1501,7 +1213,6 @@ def run_one(f='./data/exp/dat/pop9/exp_data2.txt', g=11, a=1):
 
 def gen_runner(pop, gn):
     reset_globals()
-    global germ_genomes, soma_genomes
     for i in range(pop):
         try:
             agentFit = Fitness3_Get(soma_genomes[i], i)
@@ -1509,7 +1220,8 @@ def gen_runner(pop, gn):
         except timeout.TimeoutError:
             agentFit = 0
             log_timeouts.append(tuple([gn, i]))
-            set_output_data(gn, i, agentFit, germ_genomes[i], soma_genomes[i], True)
+            set_output_data(gn, i, agentFit,
+                            germ_genomes[i], soma_genomes[i], True)
         # print i, agentFit
 
 
@@ -1649,17 +1361,17 @@ def sensitivity_run():
 # Change slect_next_gen before you run this!
 def experimental_run(f):
     global mutation_error, transcription_error, log_timeouts
-    global pops, gens, germ_genomes, development_data
+    global pops, gens, germ_genomes, soma_genomes, development_data
     reset_globals()
     germ_genomes = []
-    # sl = grab_genomes('/root/sim/python/data/sens/dev_data1.txt')
+    # sl = grab_genomes('./data/sens/dev_data1.txt')
     for i in range(pops):
         # germ_genomes.append(sl[i])
         germ_genomes.append(generate(18000))
     start_genes = germ_genomes
     sgd = tablib.Dataset()
     sgd.headers = ['Gene Code p1', 'Gene Code p2']
-    sgf = '/root/sim/python/data/exp/pop' + str(f) + '_genes.txt'
+    sgf = './data/pop' + str(f) + '_genes.txt'
     halfer = int(len(start_genes[0]) * .5)
     with open(sgf, 'w+') as wsgf:
         for gc in start_genes:
@@ -1699,6 +1411,7 @@ def experimental_run(f):
             print "; ME: " + str(mutation_error),
             print "; TE: " + str(transcription_error)
             germ_genomes = start_genes
+            soma_genomes = [None] * len(germ_genomes)
             for i in range(gens):
                 for j in range(pops):
                     soma_genomes[j] = transcribe_with_errors(germ_genomes[j])
@@ -1725,6 +1438,7 @@ def exp_wrapper(t=10):
 # Run the Code
 ###############################################################################
 
-
+"""
 if __name__ == "__main__":
     exp_wrapper()
+"""

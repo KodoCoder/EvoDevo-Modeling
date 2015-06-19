@@ -410,8 +410,9 @@ class BasicWorld : public GlutDemoApplication
 	      //
 	      m_bodyparts[index]->setUserPointer(&(IDs[index+1])); 
 	      //Above is for IDing collisions, below is probably not needed
-	      // m_bodyparts->setFriction(0.5);
-	      // m_bodyparts[index]->setActivationState(DISABLE_DEACTIVATION);
+	      m_bodyparts[index]->setFriction(0.8);
+	      m_bodyparts[index]->setRollingFriction(0.5);
+	      m_bodyparts[index]->setActivationState(DISABLE_DEACTIVATION);
 	      m_dynamicsWorld->addRigidBody(m_bodyparts[index]);
 	    }
 	}
