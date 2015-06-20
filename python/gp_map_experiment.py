@@ -33,6 +33,7 @@ import random
 import time
 import itertools
 import bisect
+import sqlite3
 import timeout
 import math
 import tablib
@@ -64,8 +65,8 @@ diffusion_rate_pull = .1
 
 # Error Vars
 # [0,1) ; the higher the more chance of error
-mutation_error = .000
-transcription_error = .000
+reproduction_error = .000
+building_error = .000
 
 # File Vars
 blueprint_file = './blueprint.dat'
@@ -87,6 +88,20 @@ def make_data_file(dat_dir, data_file='exp_data1.txt'):
         count += 1
         # print data_file, count
     return the_file
+
+
+def make_sql_table(i):
+    # import pdb
+    # pdb.set_trace()
+    # t = (i,)
+    conn = sqlite3.connect('test.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE pop (id INT PRIMARY KEY,
+    generation INT, parent INT, fitness REAL,
+    reproduction_error_rate REAL, buidling_error_rate REAL,
+    germline_genes TEXT, somaline_genes TEXT)''')
+    conn.commit()
+    conn.close()
 
 # HillClimber Vars
 gens = 200
@@ -795,11 +810,11 @@ class WirePart(Part):
 def reproduce_with_errors(gene_code):
     """Returns given gene code with some errors.
 
-    Error rate set by variable 'mutation_error'"""
-    global mutation_error
+    Error rate set by variable 'reproduction_error'"""
+    global reproduction_error
     new_gene_code = ''
     for char in gene_code:
-        if (mutation_error < random.random() and mutation_error > 0):
+        if (reproduction_error < random.random() and reproduction_error > 0):
             new_gene_code += str(char)
         else:
             error_bit = (int(char) + random.randrange(1, 4)) % 4
@@ -810,11 +825,11 @@ def reproduce_with_errors(gene_code):
 def transcribe_with_errors(gene_code):
     """Returns given gene code with some errors.
 
-    Error rate set by variable 'transcription_error'"""
-    global transcription_error
+    Error rate set by variable 'building_error'"""
+    global building_error
     new_gene_code = ''
     for char in gene_code:
-        if (transcription_error < random.random() and transcription_error > 0):
+        if (building_error < random.random() and building_error > 0):
             new_gene_code += str(char)
         else:
             error_bit = (int(char) + random.randrange(1, 4)) % 4
@@ -1071,19 +1086,19 @@ def calc_noise(prob):
 def set_output_data(gen, agent, fit, g_genecode, s_genecode, bad_run=False):
     global parts_built, genecode_length, genecode_used_length, read_codons
     global regulators_built, total_updates, num_bodys_prepped, data_row
-    global development_data, mutation_error, transcription_error
+    global development_data, reproduction_error, building_error
     global actual_bodys_built, actual_joints_built
     global actual_sensors_built, actual_neurons_built, actual_wires_built
     global num_bodys_prepped, num_joints_prepped, num_sensors_prepped
     global num_neurons_prepped, num_wires_prepped, development_data
     if bad_run:
         # IT data
-        if (mutation_error > 0):
-            mutation_noise = calc_noise(mutation_error)
+        if (reproduction_error > 0):
+            mutation_noise = calc_noise(reproduction_error)
         else:
             mutation_noise = 0
-        if (transcription_error > 0):
-            transcription_noise = calc_noise(transcription_error)
+        if (building_error > 0):
+            transcription_noise = calc_noise(building_error)
         else:
             transcription_noise = 0
         # Genecode
@@ -1109,12 +1124,12 @@ def set_output_data(gen, agent, fit, g_genecode, s_genecode, bad_run=False):
             regulators_built += p.regulatory_elements
             total_updates += p.num_updates
         # IT data
-        if (mutation_error > 0):
-            mutation_noise = calc_noise(mutation_error)
+        if (reproduction_error > 0):
+            mutation_noise = calc_noise(reproduction_error)
         else:
             mutation_noise = 0
-        if (transcription_error > 0):
-            transcription_noise = calc_noise(transcription_error)
+        if (building_error > 0):
+            transcription_noise = calc_noise(building_error)
         else:
             transcription_noise = 0
         total_info = .5 * genecode_length   # -(.25 * log(.25, 2)) = .5 bits
@@ -1136,6 +1151,18 @@ def set_output_data(gen, agent, fit, g_genecode, s_genecode, bad_run=False):
                     actual_wires_built, g_genecode_part1, g_genecode_part2,
                     s_genecode_part1, s_genecode_part2]
         development_data.append(data_row)
+
+
+def sql_output(gen, agent, fit, g_genecode, s_genecode, bad_run=False):
+    global reproduction_error, building_error
+    tup = (gen*pops + agent, gen, 0, fit, reproduction_error,
+           building_error, g_genecode, s_genecode)
+    conn = sqlite3.connect('test.db')
+    c = conn.cursor()
+    c.execute('''INSERT INTO pop VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+              tup)
+    conn.commit()
+    conn.close()
 
 
 def select_next_gen(g, p=pops):
@@ -1282,19 +1309,49 @@ def run_one(f='./data/exp/dat/pop9/exp_data2.txt', g=11, a=1):
 def gen_runner(pop, gn):
     reset_globals()
     for i in range(pop):
+        if i == 3:
+            break
         try:
             agentFit = Fitness3_Get(soma_genomes[i], i)
-            set_output_data(gn, i, agentFit, germ_genomes[i], soma_genomes[i])
+            sql_output(gn, i, agentFit, germ_genomes[i], soma_genomes[i])
+            # set_output_data(gn, i, agentFit, germ_genomes[i],
+            #                soma_genomes[i])
         except timeout.TimeoutError:
             agentFit = 0
             log_timeouts.append(tuple([gn, i]))
-            set_output_data(gn, i, agentFit,
-                            germ_genomes[i], soma_genomes[i], True)
+            sql_output(gn, i, agentFit, germ_genomes[i],
+                       soma_genomes[i], True)
+            # set_output_data(gn, i, agentFit,
+            #                germ_genomes[i], soma_genomes[i], True)
         # print i, agentFit
 
 
+def sql_test():
+    conn = sqlite3.connect('test.db')
+    c = conn.cursor()
+    for i in c.execute('SELECT germline_genes FROM pop WHERE id=0'):
+        print len(i[0])
+        print i[0].find(' ')
+    conn.close()
+
+
+def testit():
+    global germ_genomes, soma_genomes
+    germ_genomes = []
+    for i in range(pops):
+        germ_genomes.append(generate(18000))
+    make_sql_table(1)
+    soma_genomes = [None] * pops
+    for i in range(gens):
+        for j in range(pops):
+            soma_genomes[j] = transcribe_with_errors(germ_genomes[j])
+        # print len(soma_genomes)
+        gen_runner(pops, i)
+        sql_test()
+
+
 def sensitivity_run():
-    global mutation_error, transcription_error, log_timeouts
+    global reproduction_error, building_error, log_timeouts
     global pops, gens, germ_genomes, soma_genomes, development_data
     reset_globals()
     germ_genomes = []
@@ -1306,9 +1363,9 @@ def sensitivity_run():
     for r in range(2,3):
         if r == 0:
             for i in range(5, 51, 5):
-                mutation_error = float(i)/10000
+                reproduction_error = float(i)/10000
                 for j in range(5, 51, 5):
-                    transcription_error = float(j)/10000
+                    building_error = float(j)/10000
                     development_data = tablib.Dataset()
                     development_data.headers = ['Generation', 'Agent', 'Fitness',
                                                 'GeneCode Length',
@@ -1326,8 +1383,8 @@ def sensitivity_run():
                                                 'Somaline Genes p2']
                     d = make_data_file('/root/sim/python/data/sens3/')
                     germ_genomes = start_genes
-                    print "Testing ME: " + str(mutation_error),
-                    print "; TE: " + str(transcription_error)
+                    print "Testing ME: " + str(reproduction_error),
+                    print "; TE: " + str(building_error)
                     for k in range(gens):
                         for l in range(pops):
                             soma_genomes[l] = transcribe_with_errors(germ_genomes[l])
@@ -1338,17 +1395,17 @@ def sensitivity_run():
                         f.write(development_data.csv)
                     with open('/root/sim/python/data/sens3/log_file.txt', 'a+') as t:
                         t.write('M_Err: {0}; T_Err: {1};--{2}\n'.format(
-                            round(mutation_error, 3),
-                            round(transcription_error, 3),
+                            round(reproduction_error, 3),
+                            round(building_error, 3),
                             log_timeouts))
                     log_timeouts = []
         if r == 1:
             for i in range(5, 51, 5):
-                mutation_error = float(i)/1000
+                reproduction_error = float(i)/1000
                 for j in range(5, 51, 5):
                     if i == 5 and j <= 35:
                         continue
-                    transcription_error = float(j)/1000
+                    building_error = float(j)/1000
                     development_data = tablib.Dataset()
                     development_data.headers = ['Generation', 'Agent', 'Fitness',
                                                 'GeneCode Length',
@@ -1365,8 +1422,8 @@ def sensitivity_run():
                                                 'Germline Genes p2', 'Somaline Genes p1',
                                                 'Somaline Genes p2']
                     d = make_data_file('/root/sim/python/data/sens2/')
-                    print "Testing ME: " + str(mutation_error),
-                    print "; TE: " + str(transcription_error)
+                    print "Testing ME: " + str(reproduction_error),
+                    print "; TE: " + str(building_error)
                     germ_genomes = start_genes
                     for k in range(gens):
                         for l in range(pops):
@@ -1378,17 +1435,17 @@ def sensitivity_run():
                         f.write(development_data.csv)
                     with open('/root/sim/python/data/sens2/log_file.txt', 'a+') as t:
                         t.write('M_Err: {0}; T_Err: {1};--{2}\n'.format(
-                            round(mutation_error, 3),
-                            round(transcription_error, 3),
+                            round(reproduction_error, 3),
+                            round(building_error, 3),
                             log_timeouts))
                     log_timeouts = []
         if r == 2:
             for i in range(5, 51, 5):
-                mutation_error = float(i)/100
+                reproduction_error = float(i)/100
                 for j in range(5, 51, 5):
                     if i == 5 and j == 5:
                         continue
-                    transcription_error = float(j)/100
+                    building_error = float(j)/100
                     development_data = tablib.Dataset()
                     development_data.headers = ['Generation', 'Agent', 'Fitness',
                                                 'GeneCode Length',
@@ -1405,8 +1462,8 @@ def sensitivity_run():
                                                 'Germline Genes p2', 'Somaline Genes p1',
                                                 'Somaline Genes p2']
                     d = make_data_file('/root/sim/python/data/sens/')
-                    print "Testing ME: " + str(mutation_error),
-                    print "; TE: " + str(transcription_error)
+                    print "Testing ME: " + str(reproduction_error),
+                    print "; TE: " + str(building_error)
                     germ_genomes = start_genes
                     for k in range(gens):
                         for l in range(pops):
@@ -1418,8 +1475,8 @@ def sensitivity_run():
                         f.write(development_data.csv)
                     with open('/root/sim/python/data/sens/log_file.txt', 'a+') as t:
                         t.write('M_Err: {0}; T_Err: {1};--{2}\n'.format(
-                            round(mutation_error, 3),
-                            round(transcription_error, 3),
+                            round(reproduction_error, 3),
+                            round(building_error, 3),
                             log_timeouts))
                     log_timeouts = []
 
@@ -1428,7 +1485,7 @@ def sensitivity_run():
 #    pre-transcribed ones!
 # Change slect_next_gen before you run this!
 def experimental_run(f):
-    global mutation_error, transcription_error, log_timeouts
+    global reproduction_error, building_error, log_timeouts
     global pops, gens, germ_genomes, soma_genomes, development_data
     reset_globals()
     germ_genomes = []
@@ -1447,18 +1504,18 @@ def experimental_run(f):
         wsgf.write(sgd.csv)
     for i in range(3):
         if i == 0:
-            mutation_error = .0005
+            reproduction_error = .0005
         if i == 1:
-            mutation_error = .003
+            reproduction_error = .003
         if i == 2:
-            mutation_error = .0035
+            reproduction_error = .0035
         for j in range(3):
             if j == 0:
-                transcription_error = .0005
+                building_error = .0005
             if j == 1:
-                transcription_error = .001
+                building_error = .001
             if j == 2:
-                transcription_error = .0025
+                building_error = .0025
             development_data = tablib.Dataset()
             development_data.headers = ['Generation', 'Agent', 'Fitness',
                                         'GeneCode Length',
@@ -1476,8 +1533,8 @@ def experimental_run(f):
             mdf = '/root/sim/python/data/exp/pop' + str(f) + '/'
             df = make_data_file(mdf)
             print "Running Population: " + str(f),
-            print "; ME: " + str(mutation_error),
-            print "; TE: " + str(transcription_error)
+            print "; ME: " + str(reproduction_error),
+            print "; TE: " + str(building_error)
             germ_genomes = start_genes
             soma_genomes = [None] * len(germ_genomes)
             for i in range(gens):
@@ -1491,8 +1548,8 @@ def experimental_run(f):
             lf = '/root/sim/python/data/exp/log_file' + str(f) + '.txt'
             with open(lf, 'w+') as wlf:
                 wlf.write('M_Err: {0}; T_Err: {1};--{2}\n'.format(
-                    round(mutation_error, 4),
-                    round(transcription_error, 4),
+                    round(reproduction_error, 4),
+                    round(building_error, 4),
                     log_timeouts))
             log_timeouts = []
 
