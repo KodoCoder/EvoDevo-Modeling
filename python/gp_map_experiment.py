@@ -90,18 +90,36 @@ def make_data_file(dat_dir, data_file='exp_data1.txt'):
     return the_file
 
 
-def make_sql_table(i):
+def make_sql_table(dat_dir='./data/', data_file='population_0.db'):
     # import pdb
     # pdb.set_trace()
     # t = (i,)
-    conn = sqlite3.connect('test.db')
+    the_file = dat_dir + data_file
+    count = 0
+    while (os.path.isfile(the_file)):
+        index = the_file.find('.db')
+        if (count <= 10):
+            the_file = the_file[:index-1] + str(count) + the_file[index:]
+        elif (count > 10 and count <= 100):
+            the_file = the_file[:index-2] + str(count) + the_file[index:]
+        elif (count > 100 and count <= 1000):
+            the_file = the_file[:index-3] + str(count) + the_file[index:]
+        count += 1
+    conn = sqlite3.connect(the_file)
     c = conn.cursor()
+    # s = '''CREATE TABLE pop''' + str(i)
+    # s += ''' (id INT PRIMARY KEY, generation INT, parent INT, '''
+    # s += '''fitness REAL, reproduction_error_rate REAL, '''
+    # s += '''buidling_error_rate REAL, germline_genes TEXT, '''
+    # s += '''somaline_genes TEXT)'''
+    # c.execute(s)
     c.execute('''CREATE TABLE pop (id INT PRIMARY KEY,
     generation INT, parent INT, fitness REAL,
     reproduction_error_rate REAL, buidling_error_rate REAL,
     germline_genes TEXT, somaline_genes TEXT)''')
     conn.commit()
     conn.close()
+    return the_file
 
 # HillClimber Vars
 gens = 200
@@ -1045,7 +1063,9 @@ def format_output():
 
 def output_to_file():
     global big_holder, blueprint_file
-    f = open(blueprint_file, 'w')
+    if os.path.isfile(blueprint_file):
+        os.remove(blueprint_file)
+    f = open(blueprint_file, 'w+')
     f.write(big_holder)
     f.close()
 
@@ -1074,6 +1094,8 @@ def Fitness3_Get(s_gene_code, agent):
     actual_sensors_built = int(collected_fits[3])
     actual_neurons_built = int(collected_fits[4])
     actual_wires_built = int(collected_fits[5])
+    import pdb
+    pdb.set_trace()
     os.remove(fit_file)
     os.remove(blueprint_file)
     return fits
@@ -1153,14 +1175,13 @@ def set_output_data(gen, agent, fit, g_genecode, s_genecode, bad_run=False):
         development_data.append(data_row)
 
 
-def sql_output(gen, agent, fit, g_genecode, s_genecode, bad_run=False):
+def sql_output(gen, agent, fit, g_genecode, s_genecode, pn, pf, bad_run=False):
     global reproduction_error, building_error
     tup = (gen*pops + agent, gen, 0, fit, reproduction_error,
            building_error, g_genecode, s_genecode)
-    conn = sqlite3.connect('test.db')
+    conn = sqlite3.connect(pf)
     c = conn.cursor()
-    c.execute('''INSERT INTO pop VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-              tup)
+    c.execute('INSERT INTO pop VALUES (?, ?, ?, ?, ?, ?, ?, ?)', tup)
     conn.commit()
     conn.close()
 
@@ -1306,21 +1327,22 @@ def run_one(f='./data/exp/dat/pop9/exp_data2.txt', g=11, a=1):
     return Fitness3_Get(gc, 0)
 
 
-def gen_runner(pop, gn):
+def gen_runner(pop, gn, pn, pf):
     reset_globals()
     for i in range(pop):
         if i == 3:
             break
         try:
             agentFit = Fitness3_Get(soma_genomes[i], i)
-            sql_output(gn, i, agentFit, germ_genomes[i], soma_genomes[i])
+            sql_output(gn, i, agentFit, germ_genomes[i], soma_genomes[i],
+                       pn, pf)
             # set_output_data(gn, i, agentFit, germ_genomes[i],
             #                soma_genomes[i])
         except timeout.TimeoutError:
             agentFit = 0
             log_timeouts.append(tuple([gn, i]))
             sql_output(gn, i, agentFit, germ_genomes[i],
-                       soma_genomes[i], True)
+                       soma_genomes[i], pn, pf, True)
             # set_output_data(gn, i, agentFit,
             #                germ_genomes[i], soma_genomes[i], True)
         # print i, agentFit
@@ -1340,14 +1362,15 @@ def testit():
     germ_genomes = []
     for i in range(pops):
         germ_genomes.append(generate(18000))
-    make_sql_table(1)
     soma_genomes = [None] * pops
-    for i in range(gens):
-        for j in range(pops):
-            soma_genomes[j] = transcribe_with_errors(germ_genomes[j])
-        # print len(soma_genomes)
-        gen_runner(pops, i)
-        sql_test()
+    for q in range(1):
+        pop_file = make_sql_table()
+        for i in range(20):
+            for j in range(pops):
+                soma_genomes[j] = transcribe_with_errors(germ_genomes[j])
+            # print len(soma_genomes)
+            gen_runner(pops, i, 0, pop_file)
+            print 'R: ', q, 'G: ', i
 
 
 def sensitivity_run():
@@ -1565,5 +1588,6 @@ def exp_wrapper(t=10):
 
 """
 if __name__ == "__main__":
-    exp_wrapper()
+    # exp_wrapper()
+    testit()
 """
