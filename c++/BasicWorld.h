@@ -118,7 +118,7 @@ class BasicWorld : public GlutDemoApplication
 	vector<vector<long double> > weights_n2n;
  public:
 	//Collision Variables
-	vector<int> IDs;
+	int * IDs;
 	vector<int> touches;
 	vector<btVector3> touchPoints;
 	//Matrix Variables
@@ -345,6 +345,23 @@ class BasicWorld : public GlutDemoApplication
 	  
 	  
 	// building functions
+	void CreateGround(int index)
+	{
+	  groundShape = new btStaticPlaneShape(btVector3(0, 1, 0), 1);
+	  m_collisionShapes.push_back(groundShape);
+	  //m_collisionShapes[index] = groundShape;
+	  
+	  btTransform groundTransform;
+	  groundTransform.setIdentity();
+	  groundTransform.setOrigin(btVector3(0,-1,0));
+	  
+	  fixedGround = new btCollisionObject();
+	  fixedGround->setCollisionShape(groundShape);
+	  fixedGround->setWorldTransform(groundTransform);
+	  fixedGround->setUserPointer(&(IDs[index]));
+	  m_dynamicsWorld->addCollisionObject(fixedGround);  
+	}
+
 	/*
 	  void CreateBox(int index, btVector3 origin, btScalar size)
 	  {
@@ -386,8 +403,7 @@ class BasicWorld : public GlutDemoApplication
 	{
 	  btCollisionShape* sphere = new btSphereShape(size);
 	  m_collisionShapes.push_back(sphere);
-	  // I don't think I need the below because of the above
-	  //m_collisionShapes.push_back(sphere);
+	  //m_collisionShapes[index] = sphere;
 	  btTransform sphereTransform;
 	  sphereTransform.setIdentity();
 	  sphereTransform.setOrigin(btVector3(x, y, z));
@@ -399,7 +415,7 @@ class BasicWorld : public GlutDemoApplication
 	  bool isDynamic = (mass != 0.f);
 	  btVector3 localInertia(0,0,0);
 	  m_geomparts.push_back(sphere);
-
+	  //m_geomparts[index] = sphere;
 	  if (isDynamic)
 	    {
 	      sphere->calculateLocalInertia(mass, localInertia);
@@ -407,7 +423,7 @@ class BasicWorld : public GlutDemoApplication
 	      btDefaultMotionState* myMotionState = new btDefaultMotionState(sphereTransform);
 	      btRigidBody::btRigidBodyConstructionInfo rbInfo(mass,myMotionState,sphere,localInertia);
 	      m_bodyparts.push_back(new btRigidBody(rbInfo));
-	      //
+	      //m_bodyparts[index] = new btRigidBody(rbInfo);
 	      m_bodyparts[index]->setUserPointer(&(IDs[index+1])); 
 	      //Above is for IDing collisions, below is probably not needed
 	      m_bodyparts[index]->setFriction(0.8);
@@ -416,7 +432,7 @@ class BasicWorld : public GlutDemoApplication
 	      m_dynamicsWorld->addRigidBody(m_bodyparts[index]);
 	    }
 	}
-      
+     
 
 	btVector3 PointWorldToLocal(int bodyIndex, btVector3 &point)
 	{
@@ -543,6 +559,13 @@ class BasicWorld : public GlutDemoApplication
 	      fitsFile << built_neurons.size() << endl;
 	      fitsFile << built_s_wires.size() + built_n_wires.size() << endl;
 	      fitsFile.close();
+	      /*
+	      cout << built_joints.size()+1 << endl;
+	      cout << built_joints.size() << endl;
+	      cout << built_sensors.size() << endl;
+	      cout << built_neurons.size() << endl;
+	      cout << built_s_wires.size() + built_n_wires.size() << endl;
+	      */
 	      return 0;
 	    }
 	  else 

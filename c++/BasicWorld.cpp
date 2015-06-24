@@ -60,34 +60,7 @@ void BasicWorld::initPhysics()
   
   GrabBluePrints();
 
-  // Set IDs and touches
-  /*
-  for (int i=0;i<body_indexs.size();i++)
-    { 
-      IDs.push_back(i);
-      touches.push_back(0);
-      touchPoints.push_back(btVector3(0.,0.,0.));
-    }
-  */
-  /* was thinking about setting it per sensor
-     but that doesn't make sense b/c the callback method 
-     points to bodies
-     Now trying to do it right before bodies get built
-  */
-  // But still need to set ground ID
-  IDs.clear();
-  IDs.reserve(body_indexs.size());
-  IDs.push_back(0);
-  touches.clear();
-  touches.push_back(0);
-  touchPoints.clear();
-  touchPoints.push_back(btVector3(0.,0.,0.));
   
-  timeStep = 0;
-  pause = false;
-  oneStep = false;
-
-
   if (body_indexs.empty()||joint_indexs.empty())
     {
       if (COMMENTS)
@@ -95,7 +68,10 @@ void BasicWorld::initPhysics()
       Save_Position(false);
       exit(0);
     }
-      
+
+  timeStep = 0;
+  pause = false;
+  oneStep = false;      
   
   // Print out imported info
   if (COMMENTS)
@@ -165,27 +141,12 @@ void BasicWorld::initPhysics()
 
   // Ground and sphere collision shape variables
   //btCollisionShape* define is in .h file 
-
-  groundShape = new btStaticPlaneShape(btVector3(0, 1, 0), 1);
-  m_collisionShapes.push_back(groundShape);
-
-  btTransform groundTransform;
-  groundTransform.setIdentity();
-  groundTransform.setOrigin(btVector3(0,-1,0));
-
-  fixedGround = new btCollisionObject();
-  fixedGround->setCollisionShape(groundShape);
-  fixedGround->setWorldTransform(groundTransform);
-  fixedGround->setUserPointer(&(IDs[0]));
-  m_dynamicsWorld->addCollisionObject(fixedGround);  
   
   //=================== Creating Body Parts and Joints ================================
   
   // these hold all create information
   vector<vector<btScalar> > parts_to_build;
-  vector<vector<btScalar> > hinges_to_build; 
-  parts_to_build.clear();
-  hinges_to_build.clear();
+  vector<vector<btScalar> > hinges_to_build;
   vector<btScalar> tb_holder;
   vector<btVector3> bp_locations;
   // the following three use same indexing as BP bodies
@@ -468,15 +429,7 @@ void BasicWorld::initPhysics()
 	{ cout << "No bodies or no joints to build" << endl;}
       Save_Position(false);
       exit(0);
-    }
-  
-  for (int i=0;i<built_bodies.size();i++)
-    { 
-      IDs.push_back(i+1);
-      touches.push_back(0);
-      touchPoints.push_back(btVector3(0.,0.,0.));
-    }
-		       
+    }		       
 
   for (int i=0; i<parts_to_build.size(); i++)
     {
@@ -501,6 +454,36 @@ void BasicWorld::initPhysics()
 	}
     }
     
+  /*
+  m_bodyparts = new btRigidBody[parts_to_build.size()];
+  m_geomparts = new btCollisionShape[parts_to_build.size()+1];
+  m_jointparts = new btHingeConstraint[hinges_to_build.size()];
+  */
+  // Set IDs and touches
+  IDs = new int [parts_to_build.size()+1];
+  touches.clear();
+  touches.reserve(parts_to_build.size()+1);
+  touchPoints.clear();
+  touchPoints.reserve(parts_to_build.size()+1);
+  
+  for (int i=0;i<(parts_to_build.size()+1);i++)
+    { 
+      IDs[i] = i;
+      //IDs->push_back(i+1);
+      //IDs.push_back(i+1);
+      touches.push_back(0);
+      touchPoints.push_back(btVector3(0.,0.,0.));
+    }
+  
+  m_bodyparts.clear();
+  m_bodyparts.reserve(parts_to_build.size());
+  m_geomparts.clear();
+  m_geomparts.reserve(parts_to_build.size()+1);
+  m_geomparts.clear();
+  m_jointparts.reserve(hinges_to_build.size());
+ 
+  CreateGround(0);
+
   if (COMMENTS)
     {cout << "Done with body setup, start bulding" << endl;}
 
@@ -605,15 +588,6 @@ void BasicWorld::initPhysics()
   sensor_touches.clear();
   sensor_touches.resize(built_sensors.size());
   sensor_touches.reserve(built_sensors.size());
-  
-  /* Nope
-  for (int i=0;i<built_sensors.size();i++)
-    { 
-      IDs.push_back(i);
-      touches.push_back(0);
-      touchPoints.push_back(btVector3(0.,0.,0.));
-    }
-  */
 
   while ((built_neurons.size() < neuron_total) && (built_neurons.size() < neuron_capacity))
     {
@@ -693,6 +667,20 @@ void BasicWorld::initPhysics()
     {
       input_n_total += neuron_inputs[built_neurons[i][0]];
     }
+  bool are_neurons = true;
+  if (built_neurons.size() == 0)
+    {
+      are_neurons = false;
+    }
+  /*
+  if (built_neurons.size() == 0)
+    {
+      v_holder.clear();
+      v_holder.push_back(0);
+      v_holder.push_back(0);
+      built_neurons.push_back(v_holder);
+    }
+  */
   input_total = input_j_total + input_n_total;
   
   j_index = 0;
@@ -704,7 +692,9 @@ void BasicWorld::initPhysics()
   // false means from_neuron
   bool from_sensor = true;
   // false means to_neuron
-  bool to_joint = wire_directs[0];
+  bool to_joint = true;
+  if (wire_directs.size() != 0)
+    {bool to_joint = wire_directs[0];}
   bool found_joint = true;
   bool found_neuron = true;
   v_holder.clear();
@@ -782,7 +772,7 @@ void BasicWorld::initPhysics()
 			}
 		     
 		      // If you don't find a good joint
-		      else  
+		      else if (are_neurons)
 			{
 			  i_hold = n_index;
 			  // look for a good neuron
@@ -836,36 +826,39 @@ void BasicWorld::initPhysics()
 		  // Or you look for a neuron first
 		  else
 		    {
-		      i_hold = n_index;
-		      // look for a good neuron
-		      while (!(neuron_inputs[built_neurons[n_index][0]] > used_n_inputs[n_index]))
+		      if (are_neurons)
 			{
-			  n_index++;
-			  if (n_index >= built_neurons.size())
-			    {n_index = 0;}
-			  if (n_index==i_hold)
-			    { found_neuron = false;
-			      break;}
-			}
-		      // If you find a good neuron
-		      if (found_neuron)
-			{
-			  // set up wire
-			  v_holder.push_back(w_index);
-			  v_holder.push_back(s_global);
-			  v_holder.push_back(built_neurons[n_index][0]);
-			  v_holder.push_back(1);
-			  // build it
-			  built_s_wires.push_back(v_holder);
-			  if (COMMENTS)
-			    {cout << "Built Wire--SNa: " << v_holder[0] << endl;}
-			  used_n_inputs[n_index]++;
-			  n_index++;
-			  if (n_index >= built_neurons.size())
-			    {n_index=0;}
+			  i_hold = n_index;
+			  // look for a good neuron
+			  while (!(neuron_inputs[built_neurons[n_index][0]] > used_n_inputs[n_index]))
+			    {
+			      n_index++;
+			      if (n_index >= built_neurons.size())
+				{n_index = 0;}
+			      if (n_index==i_hold)
+				{ found_neuron = false;
+				  break;}
+			    }
+			  // If you find a good neuron
+			  if (found_neuron)
+			    {
+			      // set up wire
+			      v_holder.push_back(w_index);
+			      v_holder.push_back(s_global);
+			      v_holder.push_back(built_neurons[n_index][0]);
+			      v_holder.push_back(1);
+			      // build it
+			      built_s_wires.push_back(v_holder);
+			      if (COMMENTS)
+				{cout << "Built Wire--SNa: " << v_holder[0] << endl;}
+			      used_n_inputs[n_index]++;
+			      n_index++;
+			      if (n_index >= built_neurons.size())
+				{n_index=0;}
+			    }
 			}
 		      // If you don't find a good neuron
-		      else 
+		      else if (!found_neuron)
 			{
 			  // look for a joint instead
 			  i_hold = j_index;
@@ -923,7 +916,10 @@ void BasicWorld::initPhysics()
 		    }
 		}
 	    }
-	  from_sensor = false;
+	  if (are_neurons)
+	    {
+	      from_sensor = false;
+	    }
 	}
       // else neuron iteration
       else if (!from_sensor)
@@ -1023,7 +1019,7 @@ void BasicWorld::initPhysics()
 			}
 		    }
 		  // Or you look for a neuron first
-		  else //this
+		  else
 		    {
 		      i_hold = n_index;
 		      // look for a good neuron
@@ -1606,6 +1602,8 @@ void BasicWorld::exitPhysics()
       delete obj;
     }
   */
+
+  delete IDs;
 
   // Ground
   delete fixedGround;

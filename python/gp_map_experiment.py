@@ -251,6 +251,9 @@ class Part(object):
         self.rc120 = 0
         # Other codons
         self.codon_junk = 0
+        # BODYREG LIST
+        self.index = 0
+        self.reg_list = [None] * 15
         # BodyPart REs
         self.reg_size = [0., 0.]  # add and subtract to compress into 1 var
         self.reg_s_num = [0., 0.]    # +/- values
@@ -449,11 +452,6 @@ class Part(object):
         # WirePart REs
         push_list += self.reg_weight
         push_list += self.reg_direct
-        # if push_list > 0:
-        #    print "PHL:", push_list
-        # n_push_list = [push_list[i]/sum(push_list)
-        #                for i in range(len(push_list))]
-        # o_push_list = [0] * 40
         o_push_list = [int(round(diffusion_rate_push * i)) for i in push_list]
         """
         re_to_push = int(diffusion_rate_push * sum(push_list))
@@ -464,21 +462,13 @@ class Part(object):
             o_push_list[ml[mli]] += 1
             push_list[ml[mli]] = 0
         """
-        # push_list = [math.floor(i * diffusion_rate_push) for i in push_list]
-        # if o_push_list > 0:
-        #    print "PHL:", o_push_list
         regulator_pool = [i + j for i, j in
                           itertools.izip(regulator_pool, o_push_list)]
-        # if sum(regulator_pool) > 0:
-        #    print "RP af PH:", regulator_pool
         return o_push_list
 
     def get_pull_list(self):
         global regulator_pool
         pull_list = [i for i in regulator_pool]
-        # if sum(pull_list) > 0:
-        #    print "PLL flr:", pull_list
-        # o_pull_list = [0] * 40
         o_pull_list = [int(round(diffusion_rate_pull * i)) for i in pull_list]
         """
         re_to_pull = int(diffusion_rate_pull * sum(pull_list))
@@ -494,64 +484,66 @@ class Part(object):
         for c, e in enumerate(regulator_pool):
             if e < 0:
                 regulator_pool[c] = 0
+                print "pull1:", o_pull_list[c]
                 o_pull_list[c] += e
-        # if sum(o_pull_list) > 0:
-        #    print "PLL:", o_pull_list
-        # if sum(regulator_pool) > 0:
-        #    print "RP af PL:", regulator_pool
+                print "pull2:", o_pull_list[c]
         return o_pull_list
 
-    def use_phpl_list(self, phlst, pllst):
-        self.reg_size[0] += pllst[0] - phlst[0]
-        self.reg_size[1] += pllst[1] - phlst[1]
-        self.reg_s_num[0] += pllst[2] - phlst[2]
-        self.reg_s_num[1] += pllst[3] - phlst[3]
-        self.reg_j_num[0] += pllst[4] - phlst[4]
-        self.reg_j_num[1] += pllst[5] - phlst[5]
-        self.reg_n_num[0] += pllst[6] - phlst[6]
-        self.reg_n_num[1] += pllst[7] - phlst[7]
-        self.reg_s_loc[0] += pllst[8] - phlst[8]
-        self.reg_s_loc[1] += pllst[9] - phlst[9]
-        self.reg_s_loc[2] += pllst[10] - phlst[10]
-        self.reg_s_loc[3] += pllst[11] - phlst[11]
-        self.reg_s_loc[4] += pllst[12] - phlst[12]
-        self.reg_s_loc[5] += pllst[13] - phlst[13]
-        self.reg_j_loc[0] += pllst[14] - phlst[14]
-        self.reg_j_loc[1] += pllst[15] - phlst[15]
-        self.reg_j_loc[2] += pllst[16] - phlst[16]
-        self.reg_j_loc[3] += pllst[17] - phlst[17]
-        self.reg_j_loc[4] += pllst[18] - phlst[18]
-        self.reg_j_loc[5] += pllst[19] - phlst[19]
+    def use_phpl_list(self, phpllst):
+        self.reg_size[0] = max(0, self.reg_size[0] + phpllst[0])
+        self.reg_size[1] = max(0, self.reg_size[1] + phpllst[1])
+        self.reg_s_num[0] = max(0, self.reg_s_num[0] + phpllst[2])
+        self.reg_s_num[1] = max(0, self.reg_s_num[1] + phpllst[3])
+        self.reg_j_num[0] = max(0, self.reg_j_num[0] + phpllst[4])
+        self.reg_j_num[1] = max(0, self.reg_j_num[1] + phpllst[5])
+        self.reg_n_num[0] = max(0, self.reg_n_num[0] + phpllst[6])
+        self.reg_n_num[1] = max(0, self.reg_n_num[1] + phpllst[7])
+        self.reg_s_loc[0] = max(0, self.reg_s_loc[0] + phpllst[8])
+        self.reg_s_loc[1] = max(0, self.reg_s_loc[1] + phpllst[9])
+        self.reg_s_loc[2] = max(0, self.reg_s_loc[2] + phpllst[10])
+        self.reg_s_loc[3] = max(0, self.reg_s_loc[3] + phpllst[11])
+        self.reg_s_loc[4] = max(0, self.reg_s_loc[4] + phpllst[12])
+        self.reg_s_loc[5] = max(0, self.reg_s_loc[5] + phpllst[13])
+        self.reg_j_loc[0] = max(0, self.reg_j_loc[0] + phpllst[14])
+        self.reg_j_loc[1] = max(0, self.reg_j_loc[1] + phpllst[15])
+        self.reg_j_loc[2] = max(0, self.reg_j_loc[2] + phpllst[16])
+        self.reg_j_loc[3] = max(0, self.reg_j_loc[3] + phpllst[17])
+        self.reg_j_loc[4] = max(0, self.reg_j_loc[4] + phpllst[18])
+        self.reg_j_loc[5] = max(0, self.reg_j_loc[5] + phpllst[19])
         # JointPart REs
-        self.reg_active_passive[0] += pllst[20] - phlst[20]
-        self.reg_active_passive[1] += pllst[21] - phlst[21]
-        self.reg_free_rigid[0] += pllst[22] - phlst[22]
-        self.reg_free_rigid[1] += pllst[23] - phlst[23]
-        self.reg_upper_lower[0] += pllst[24] - phlst[24]
-        self.reg_upper_lower[1] += pllst[25] - phlst[25]
-        self.reg_upper_lower[2] += pllst[26] - phlst[26]
-        self.reg_upper_lower[3] += pllst[27] - phlst[27]
-        self.reg_j_inputs[0] += pllst[28] - phlst[28]
-        self.reg_j_inputs[1] += pllst[29] - phlst[29]
+        self.reg_active_passive[0] = max(0, self.reg_active_passive[0] +
+                                         phpllst[20])
+        self.reg_active_passive[1] = max(0, self.reg_active_passive[1] +
+                                         phpllst[21])
+        self.reg_free_rigid[0] = max(0, self.reg_free_rigid[0] + phpllst[22])
+        self.reg_free_rigid[1] = max(0, self.reg_free_rigid[1] + phpllst[23])
+        self.reg_upper_lower[0] = max(0, self.reg_upper_lower[0] + phpllst[24])
+        self.reg_upper_lower[1] = max(0, self.reg_upper_lower[1] + phpllst[25])
+        self.reg_upper_lower[2] = max(0, self.reg_upper_lower[2] + phpllst[26])
+        self.reg_upper_lower[3] = max(0, self.reg_upper_lower[3] + phpllst[27])
+        self.reg_j_inputs[0] = max(0, self.reg_j_inputs[0] + phpllst[28])
+        self.reg_j_inputs[1] = max(0, self.reg_j_inputs[1] + phpllst[29])
         # NeuronPart REs
-        self.reg_n_inputs[0] += pllst[30] - phlst[30]
-        self.reg_n_inputs[1] += pllst[31] - phlst[31]
-        self.reg_n_outputs[0] += pllst[32] - phlst[32]
-        self.reg_n_outputs[1] += pllst[33] - phlst[33]
+        self.reg_n_inputs[0] = max(0, self.reg_n_inputs[0] + phpllst[30])
+        self.reg_n_inputs[1] = max(0, self.reg_n_inputs[1] + phpllst[31])
+        self.reg_n_outputs[0] = max(0, self.reg_n_outputs[0] + phpllst[32])
+        self.reg_n_outputs[1] = max(0, self.reg_n_outputs[1] + phpllst[33])
         # SensorPart REs
-        self.reg_s_outputs[0] += pllst[34] - phlst[34]
-        self.reg_s_outputs[1] += pllst[35] - phlst[35]
+        self.reg_s_outputs[0] = max(0, self.reg_s_outputs[0] + phpllst[34])
+        self.reg_s_outputs[1] = max(0, self.reg_s_outputs[1] + phpllst[35])
         # WirePart REs
-        self.reg_weight[0] += pllst[36] - phlst[36]
-        self.reg_weight[1] += pllst[37] - phlst[37]
-        self.reg_direct[0] += pllst[38] - phlst[38]
-        self.reg_direct[1] += pllst[39] - phlst[39]
+        self.reg_weight[0] = max(0, self.reg_weight[0] + phpllst[36])
+        self.reg_weight[1] = max(0, self.reg_weight[1] + phpllst[37])
+        self.reg_direct[0] = max(0, self.reg_direct[0] + phpllst[38])
+        self.reg_direct[1] = max(0, self.reg_direct[1] + phpllst[39])
 
     def _diffusion(self):
         pllst = self.get_pull_list()
         phlst = self.get_push_list()
-        self.use_phpl_list(phlst, pllst)
-        self.regulatory_elements += sum(phlst) - sum(pllst)
+        phpllst = [i - j for i, j in itertools.izip(phlst, pllst)]
+        self.use_phpl_list(phpllst)
+        self.regulatory_elements = max(0, self.regulatory_elements +
+                                       sum(phpllst))
 
     def _update(self):
         self.num_updates += 1
@@ -1076,8 +1068,8 @@ def Fitness_Collect_From_File():
         return f.readlines()
 
 
-@timeout.timeout()
-def Fitness3_Get(s_gene_code, agent):
+@timeout.timeout(5)
+def Fitness3_Get(s_gene_code):
     global app_file, blueprint_file, actual_bodys_built, actual_joints_built
     global actual_neurons_built, actual_sensors_built, actual_wires_built
     main(s_gene_code)
@@ -1094,8 +1086,6 @@ def Fitness3_Get(s_gene_code, agent):
     actual_sensors_built = int(collected_fits[3])
     actual_neurons_built = int(collected_fits[4])
     actual_wires_built = int(collected_fits[5])
-    import pdb
-    pdb.set_trace()
     os.remove(fit_file)
     os.remove(blueprint_file)
     return fits
@@ -1294,28 +1284,49 @@ def test(s):
 
 def main(gene_code):
     global germ_genomes
+    # print '1'
     reset_globals()
+    # print '2'
     sequence_parser(gene_code)
+    # print '3'
     for i in sequence_list:
         p = Part(i)
         setup_part(p)
+    # print '4'
     for i in parts_developing:
         i.calculate_capacity()
         i.count_regulators()
         i.init_codons()
+    # print '5'
     while(parts_developing):
+        # print '6'
+        count = 0
         for i in parts_developing:
-            if i.capacity <= (i.regulatory_elements + i.regulators_per_update):
+            if i.regulators_per_update == 0:
+                count += 1
+                i._diffusion()
+                # print "COUNT: ", count, len(parts_developing)
+                # print "6c:", i.regulatory_elements
+                if count == len(parts_developing):
+                    parts_developing.remove(i)
+                    count -= 1
+            elif (i.capacity <= (i.regulatory_elements +
+                                 i.regulators_per_update)):
+                # print '6b'
                 # print i, i.regulatory_elements, i.capacity, regulator_pool
                 # print "REs:", i.regulatory_elements
                 parts_developing.remove(i)
                 parts_built.append(i)
             else:
+                # print '6a', i.regulatory_elements, i.regulators_per_update
                 # print i, i.regulatory_elements, i.capacity, regulator_pool
                 i.update()
                 i._diffusion()
+    # print '7'
     setup_blueprints(parts_built)
+    # print '8'
     format_output()
+    # print '9'
     # print big_holder
     output_to_file()
 
@@ -1333,13 +1344,14 @@ def gen_runner(pop, gn, pn, pf):
         if i == 3:
             break
         try:
-            agentFit = Fitness3_Get(soma_genomes[i], i)
+            agentFit = Fitness3_Get(soma_genomes[i])
             sql_output(gn, i, agentFit, germ_genomes[i], soma_genomes[i],
                        pn, pf)
             # set_output_data(gn, i, agentFit, germ_genomes[i],
             #                soma_genomes[i])
         except timeout.TimeoutError:
             agentFit = 0
+            print "TimeoutError"
             log_timeouts.append(tuple([gn, i]))
             sql_output(gn, i, agentFit, germ_genomes[i],
                        soma_genomes[i], pn, pf, True)
@@ -1348,13 +1360,24 @@ def gen_runner(pop, gn, pn, pf):
         # print i, agentFit
 
 
-def sql_test():
-    conn = sqlite3.connect('test.db')
+def sql_test(t):
+    conn = sqlite3.connect(t)
     c = conn.cursor()
-    for i in c.execute('SELECT germline_genes FROM pop WHERE id=0'):
-        print len(i[0])
-        print i[0].find(' ')
+    for d in range(8280, 8340):
+        e = (d,)
+        for i in c.execute('SELECT somaline_genes FROM pop WHERE id=?', e):
+            print len(i[0]), i[0].find(' '),
+            g = i[0]
+            print d,
+            r = Fitness3_Get(g)
+            print r
     conn.close()
+
+
+def ran_test(s):
+    g = generate(s)
+    f = Fitness3_Get(g)
+    print len(g), f
 
 
 def testit():
@@ -1363,9 +1386,9 @@ def testit():
     for i in range(pops):
         germ_genomes.append(generate(18000))
     soma_genomes = [None] * pops
-    for q in range(1):
+    for q in range(10):
         pop_file = make_sql_table()
-        for i in range(20):
+        for i in range(gens):
             for j in range(pops):
                 soma_genomes[j] = transcribe_with_errors(germ_genomes[j])
             # print len(soma_genomes)
