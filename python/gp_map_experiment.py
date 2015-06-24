@@ -310,9 +310,6 @@ class Part(object):
                 elif cur_codon == 'RC+110':
                     self.rc110 += 1
                     self.capacity += 110
-                elif cur_codon == 'RC+120':
-                    self.rc120 += 1
-                    self.capacity += 120
         else:
             raise TypeError('Only a Part subclass can use this!')
 
@@ -738,9 +735,10 @@ class JointPart(Part):
                 lower_limit = upper_limit
             else:
                 upper_limit = lower_limit
-        # NEED TO CHANGE THIS \/
-        inputs = self.reg_j_inputs[0] - self.reg_j_inputs[1]
-        # NEED TO CHANGE THIS ^
+        try:
+            inputs = int(round(self.reg_j_inputs[0] / self.reg_j_inputs[1]))
+        except ZeroDivisionError:
+            inputs = int(round(self.reg_j_inputs[0]))
         if inputs < 0:
             inputs = 0
         self.blueprint = [motor, free, round(upper_limit, 4),
@@ -761,14 +759,15 @@ class NeuronPart(Part):
         Includes number of inputs, number of outputs, and whether its
         hidden (whether its outputs can go to motors, or neurons)"""
         try:
-            input_slots = int(round(self.reg_n_inputs[0]/self.reg_n_inputs[1]))
+            input_slots = int(round(self.reg_n_inputs[0] /
+                                    self.reg_n_inputs[1]))
         except ZeroDivisionError:
-            input_slots = int(round(self.reg_n_inputs[0]/1))
+            input_slots = int(round(self.reg_n_inputs[0]))
         try:
             output_slots = int(round(self.reg_n_outputs[0] /
-                                     self.reg_n_inputs[1]))
+                                     self.reg_n_outputs[1]))
         except ZeroDivisionError:
-            output_slots = int(round(self.reg_n_outputs[0]/1))
+            output_slots = int(round(self.reg_n_outputs[0]))
 
         self.blueprint = [input_slots, output_slots]
         return self.blueprint
