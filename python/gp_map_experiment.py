@@ -1164,11 +1164,11 @@ def set_output_data(gen, agent, fit, g_genecode, s_genecode, bad_run=False):
         development_data.append(data_row)
 
 
-def sql_output(gen, agent, fit, g_genecode, s_genecode, pn, pf, bad_run=False):
+def sql_output(gen, agent, fit, g_genecode, s_genecode, parent_num, pop_file, bad_run=False):
     global reproduction_error, building_error
     tup = (gen*pops + agent, gen, 0, fit, reproduction_error,
            building_error, g_genecode, s_genecode)
-    conn = sqlite3.connect(pf)
+    conn = sqlite3.connect(pop_file)
     c = conn.cursor()
     c.execute('INSERT INTO pop VALUES (?, ?, ?, ?, ?, ?, ?, ?)', tup)
     conn.commit()
@@ -1337,23 +1337,23 @@ def run_one(f='./data/exp/dat/pop9/exp_data2.txt', g=11, a=1):
     return Fitness3_Get(gc, 0)
 
 
-def gen_runner(pop, gn, pn, pf):
+def gen_runner(pop, gen, parent_number, pop_file):
     reset_globals()
     for i in range(pop):
         if i == 3:
             break
         try:
             agentFit = Fitness3_Get(soma_genomes[i])
-            sql_output(gn, i, agentFit, germ_genomes[i], soma_genomes[i],
-                       pn, pf)
+            sql_output(gen, i, agentFit, germ_genomes[i], soma_genomes[i],
+                       parent_number, pop_file)
             # set_output_data(gn, i, agentFit, germ_genomes[i],
             #                soma_genomes[i])
         except timeout.TimeoutError:
             agentFit = 0
             print "TimeoutError"
-            log_timeouts.append(tuple([gn, i]))
-            sql_output(gn, i, agentFit, germ_genomes[i],
-                       soma_genomes[i], pn, pf, True)
+            log_timeouts.append(tuple([gen*pop + i]))
+            sql_output(gen, i, agentFit, germ_genomes[i],
+                       soma_genomes[i], parent_number, pop_file, True)
             # set_output_data(gn, i, agentFit,
             #                germ_genomes[i], soma_genomes[i], True)
         # print i, agentFit
