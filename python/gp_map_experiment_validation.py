@@ -36,6 +36,7 @@ import bisect
 import sqlite3
 import timeout
 import math
+import copy
 import tablib
 import numpy as np
 # import matplotlib.pyplot as plt
@@ -143,6 +144,8 @@ read_codons = 0
 regulators_built = 0
 total_updates = 0
 log_timeouts = []
+v_data_row = []
+type_list = []
 
 
 # RESET FUNCTION
@@ -483,9 +486,9 @@ class Part(object):
         for c, e in enumerate(regulator_pool):
             if e < 0:
                 regulator_pool[c] = 0
-                print "pull1:", o_pull_list[c]
+                # print "pull1:", o_pull_list[c]
                 o_pull_list[c] += e
-                print "pull2:", o_pull_list[c]
+                # print "pull2:", o_pull_list[c]
         return o_pull_list
 
     def use_phpl_list(self, phpllst):
@@ -665,23 +668,17 @@ class BodyPart(Part):
     def get_blueprint(self):
         """Returns final measurements for BodyPart.
 
-        This includes: One size measure (radius); One mass measure
-        (based on size); 1 neuron-mount amount; 1 sensor-mount list
-        (paired with location); 1 joint-mount list (paired with location);"""
+        This includes: 1 size measure (radius); 1 neuron-mount
+        number; 1 sensor-mount list (paired with location); 1
+        joint-mount list (paired with location);
+
+        """
         size = round((1 + .2 * (self.reg_size[0] - self.reg_size[1])), 3)
         if size < .5:
             size = .5
-        """
-        Mass will be calculated in BP
-        density = .23866348448
-        if self.kind=='sphere':
-           mass = density * (4*math.pi/3) * size**3
-        elif self.kind=='cube':
-           mass = density * (size*2)**3
-        """
-        # Resize mounts based on number of locs registered
+        # Resize joint mounts based on number of locations registered
         joint_mounts = len(self.j_mount_loc)
-        # Resize mounts based on size
+        # Resize joint mounts based on size
         if joint_mounts > 1:
             if size <= .5:
                 joint_mounts = 1
@@ -696,7 +693,7 @@ class BodyPart(Part):
             neuron_mounts = round(self.reg_n_num[0]/self.reg_n_num[1])
         except ZeroDivisionError:
             neuron_mounts = round(self.reg_n_num[0]/1)
-        # Resize mounts based on number of locs registered
+        # Resize sensor mounts based on number of locations registered
         sensor_mounts = len(self.s_mount_loc)
         # Create blueprint
         self.blueprint = [self.kind, size, joint_mounts, self.j_mount_loc,
@@ -762,8 +759,7 @@ class NeuronPart(Part):
     def get_blueprint(self):
         """Returns final measurements for NeuronPart
 
-        Includes number of inputs, number of outputs, and whether its
-        hidden (whether its outputs can go to motors, or neurons)"""
+        Includes number of inputs and number of outputs"""
         try:
             input_slots = int(round(self.reg_n_inputs[0] /
                                     self.reg_n_inputs[1]))
@@ -809,7 +805,7 @@ class WirePart(Part):
     def get_blueprint(self):
         """Returns final measurements for WirePart
 
-        Includes weight of connection"""
+        Includes weight and connection preference."""
         """
         try:
             weight_ratio = ((float(self.reg_weight[0]) *
@@ -887,29 +883,37 @@ def sequence_parser(gene_code):
 
 def setup_part(part):
     """Takes part and creates proper subclass object"""
-    global parts_developing
+    global parts_developing, type_list
 
     if part.__class__ == Part:
         for i in range(0, len(part.gene_sequence), 3):
             cur_codon = table[part.gene_sequence[i:i+3]]
             if cur_codon == 'BP_SPHERE':
                 parts_developing.append(BodyPart(part.gene_sequence, 'sphere'))
+                type_list.append('000')
                 break
             elif cur_codon == 'BP_CUBE':
                 parts_developing.append(BodyPart(part.gene_sequence, 'cube'))
+                type_list.append('001')
                 break
             elif cur_codon == 'SP_TOUCH':
                 parts_developing.append(SensorPart(part.gene_sequence))
+                type_list.append('100')
                 break
             elif cur_codon == 'JP_HINGE':
                 parts_developing.append(JointPart(part.gene_sequence))
+                type_list.append('200')
                 break
             elif cur_codon == 'WP_WIRE':
                 parts_developing.append(WirePart(part.gene_sequence))
+                type_list.append('303')
                 break
             elif cur_codon == 'NP_NEURON':
                 parts_developing.append(NeuronPart(part.gene_sequence))
+                type_list.append('312')
                 break
+            elif i+3 == len(part.gene_sequence):
+                type_list.append(None)
     else:
         raise TypeError('Only the base Part class can use this!')
 
@@ -1298,21 +1302,77 @@ def test(s):
 
 
 def main(gene_code):
-    global germ_genomes
+    global germ_genomes, v_data_row, type_list
     # print '1'
     reset_globals()
     # print '2'
     sequence_parser(gene_code)
+    v_data_row.append(len(sequence_list))
+    seq_holder = []
+    type_list = []
     # print '3'
     for i in sequence_list:
+        seq_holder.append(i)
         p = Part(i)
         setup_part(p)
+    v_data_row.append(seq_holder)
+    v_data_row.append(type_list)
+    v_data_row.append(len(parts_developing))
     # print '4'
+    cap_list = []
     for i in parts_developing:
         i.calculate_capacity()
+        cap_list.append(i.capacity)
         i.count_regulators()
         i.init_codons()
+    v_data_row.append(cap_list)
+    cod_list = []
+    for i in parts_developing:
+        holder = []
+        for j in range(3, len(i.gene_sequence)-3, 3):
+            cur_codon = table[i.gene_sequence[j:j+3]]
+            if cur_codon[1] == 'R':
+                holder.append(cur_codon)
+        if len(holder) == 0:
+            holder.append(None)
+        cod_list.append(holder)
+    v_data_row.append(cod_list)
     # print '5'
+    update_holder = []
+    update_holder_nd = []
+    reg_holder = []
+    reg_holder_nd = []
+    pd = copy.deepcopy(parts_developing)
+    pb = copy.deepcopy(parts_built)
+    while(pd):
+        # print '6'
+        count = 0
+        for i in pd:
+            if i.regulators_per_update == 0:
+                count += 1
+                # print "COUNT: ", count, len(parts_developing)
+                # print "6c:", i.regulatory_elements
+                if count == len(pd):
+                    update_holder_nd.append(i.num_updates)
+                    pd.remove(i)
+                    count -= 1
+            elif (i.capacity <= (i.regulatory_elements +
+                                 i.regulators_per_update)):
+                # print '6b'
+                # print i, i.regulatory_elements, i.capacity, regulator_pool
+                # print "REs:", i.regulatory_elements
+                update_holder_nd.append(i.num_updates)
+                pd.remove(i)
+                pb.append(i)
+            else:
+                # print '6a', i.regulatory_elements, i.regulators_per_update
+                # print i, i.regulatory_elements, i.capacity, regulator_pool
+                i.update()
+    v_data_row.append(update_holder_nd)
+    for i in pb:
+        reg_holder_nd.append(get_regulator_list(i))
+    v_data_row.append(reg_holder_nd)
+    # With diffusion
     while(parts_developing):
         # print '6'
         count = 0
@@ -1320,33 +1380,40 @@ def main(gene_code):
             if i.regulators_per_update == 0:
                 count += 1
                 i._diffusion()
-                print "COUNT: ", count, len(parts_developing)
-                print "6c:", i.regulatory_elements
+                # print "COUNT: ", count, len(parts_developing)
+                # print "6c:", i.regulatory_elements
                 if count == len(parts_developing):
+                    update_holder.append(i.num_updates)
                     parts_developing.remove(i)
                     count -= 1
             elif (i.capacity <= (i.regulatory_elements +
                                  i.regulators_per_update)):
-                print '6b'
-                print i, i.regulatory_elements, i.capacity, regulator_pool
-                print "REs:", i.regulatory_elements
+                # print '6b'
+                # print i, i.regulatory_elements, i.capacity, regulator_pool
+                # print "REs:", i.regulatory_elements
+                update_holder.append(i.num_updates)
                 parts_developing.remove(i)
                 parts_built.append(i)
             else:
-                print '6a', i.regulatory_elements, i.regulators_per_update
-                print i, i.regulatory_elements, i.capacity, regulator_pool
+                # print '6a', i.regulatory_elements, i.regulators_per_update
+                # print i, i.regulatory_elements, i.capacity, regulator_pool
                 i.update()
                 i._diffusion()
+    v_data_row.append(update_holder)
+    for i in parts_built:
+        reg_holder.append(get_regulator_list(i))
+    v_data_row.append(reg_holder)
+    v_data_row.append(gene_code)
     # print '7'
     setup_blueprints(parts_built)
     # print '8'
     format_output()
     # print '9'
-    print big_holder
+    # print big_holder
     output_to_file()
 
 
-def run_one(f='/home/josh/Documents/projects/thesis/coding/final/pop9/final_data2.txt', g=11, a=1):
+def run_one(f='./data/exp/dat/pop9/exp_data2.txt', g=11, a=1):
     d = tablib.Dataset()
     d.csv = open(f, 'r').read()
     gc = d['Gene Code p1'][g*60 + a] + d['Gene Code p2'][g*60 + a]
@@ -1373,6 +1440,131 @@ def gen_runner(pop, gen, parent_number, pop_file):
             # set_output_data(gn, i, agentFit,
             #                germ_genomes[i], soma_genomes[i], True)
         # print i, agentFit
+
+
+def get_regulator_list(part):
+    r_list = []
+    c_list = list(set([i for i in table.itervalues()]))
+    c_list_fill = [[i, 0] for i in c_list]
+    # print list(enumerate(c_list)), len(c_list)
+    # BP REs
+    for i in part.reg_size:  # 0-1
+        r_list.append(i)
+    for i in part.reg_s_num:  # 2-3
+        r_list.append(i)
+    for i in part.reg_j_num:  # 4-5
+        r_list.append(i)
+    for i in part.reg_n_num:  # 6-7
+        r_list.append(i)
+    for i in part.reg_s_loc:  # 8-13
+        r_list.append(i)
+    for i in part.reg_j_loc:  # 14-19
+        r_list.append(i)
+    # JP REs
+    for i in part.reg_active_passive:  # 20-21
+        r_list.append(i)
+    for i in part.reg_free_rigid:  # 22-23
+        r_list.append(i)
+    for i in part.reg_upper_lower:  # 24-27
+        r_list.append(i)
+    for i in part.reg_j_inputs:  # 28-29
+        r_list.append(i)
+    # NP REs
+    for i in part.reg_n_inputs:  # 30-31
+        r_list.append(i)
+    for i in part.reg_n_outputs:  # 32-33
+        r_list.append(i)
+    # SP REs
+    for i in part.reg_s_outputs:  # 34-35
+        r_list.append(i)
+    # WP REs
+    for i in part.reg_weight:  # 36-37
+        r_list.append(i)
+    for i in part.reg_direct:  # 38-39
+        r_list.append(i)
+    # Now put that info in the c_list
+    # WP_WIRE
+    c_list_fill[1][1] = r_list[14]  # BR_J_X+
+    c_list_fill[2][1] = r_list[17]  # BR_J_X-
+    c_list_fill[3][1] = r_list[22]  # JR_FR+
+    c_list_fill[4][1] = r_list[11]  # BR_S_X-
+    c_list_fill[5][1] = r_list[35]  # SR_O-
+    # RC+40
+    c_list_fill[7][1] = r_list[23]  # JR_FR-
+    c_list_fill[8][1] = r_list[32]  # NR_O+
+    c_list_fill[9][1] = r_list[34]  # SR_O+
+    # RC+110
+    c_list_fill[11][1] = r_list[33]  # NR_O-
+    c_list_fill[12][1] = r_list[26]  # JR_L+
+    # RC+80
+    # RC+90
+    c_list_fill[15][1] = r_list[27]  # JR_L-
+    c_list_fill[16][1] = r_list[19]  # BR_J_Z-
+    c_list_fill[17][1] = r_list[21]  # JR_AP-
+    c_list_fill[18][1] = r_list[20]  # JR_AP+
+    c_list_fill[19][1] = r_list[3]  # BR_S_M-
+    c_list_fill[20][1] = r_list[13]  # BR_S_Z-
+    c_list_fill[21][1] = r_list[7]  # BR_N_M-
+    # RC+70
+    c_list_fill[23][1] = r_list[6]  # BR_N_M+
+    c_list_fill[24][1] = r_list[2]  # BR_S_M+
+    c_list_fill[25][1] = r_list[10]  # BR_S_Z+
+    # RC+30
+    c_list_fill[27][1] = r_list[0]  # BR_SIZE+
+    c_list_fill[28][1] = r_list[1]  # BR_SIZE-
+    c_list_fill[29][1] = r_list[29]  # JR_I-
+    # RC+60
+    c_list_fill[31][1] = r_list[28]  # JR_I+
+    c_list_fill[32][1] = r_list[16]  # BR_J_Z+
+    # STOP
+    # RC+50
+    c_list_fill[35][1] = r_list[8]  # BR_S_X+
+    # START
+    # RC+100
+    c_list_fill[38][1] = r_list[24]  # JR_U+
+    c_list_fill[39][1] = r_list[18]  # BR_J_Y-
+    c_list_fill[40][1] = r_list[15]  # BR_J_Y+
+    c_list_fill[41][1] = r_list[4]  # BR_J_M+
+    c_list_fill[42][1] = r_list[37]  # WR_W-
+    c_list_fill[43][1] = r_list[38]  # WR_W+
+    # JP_HINGE
+    c_list_fill[45][1] = r_list[5]  # BR_J_M-
+    # BP_CUBE
+    c_list_fill[47][1] = r_list[30]  # NR_I+
+    c_list_fill[48][1] = r_list[31]  # NR_I-
+    # BP_SPHERE
+    c_list_fill[50][1] = r_list[38]  # WR_D+
+    c_list_fill[51][1] = r_list[9]  # BR_S_Y+
+    c_list_fill[52][1] = r_list[25]  # JR_U-
+    c_list_fill[53][1] = r_list[12]  # BR_S_Y-
+    c_list_fill[54][1] = r_list[39]  # WR_D-
+    # SP_TOUCH
+    # NP_NEURON
+    for i in c_list_fill:
+        i[1] = int(i[1])
+    return c_list_fill
+
+
+def validation_run(genome_list):
+    global v_data_row
+    validation_data = tablib.Dataset()
+    validation_data.headers = ['Agent', 'Num_Sequences', 'Sequences', 'Types',
+                               'Part', 'Reg_Capacity', 'Reg_Codons',
+                               'Updates_NI', 'Reg_Elem_NI', 'Updates_WI',
+                               'Reg_Elem_WI', 'Germ_Genome']
+    agent_num = 0
+    for i in genome_list:
+        # agent number
+        v_data_row = []
+        v_data_row.append(agent_num)
+        agent_num += 1
+        main(i)
+        print len(validation_data.headers), len(v_data_row)
+        validation_data.append(v_data_row)
+    if os.path.isfile('./output_to_test_p.csv'):
+        os.remove('./output_to_test_p.csv')
+    with open('./output_to_test_p.csv', 'w+') as f:
+        f.write(validation_data.csv)
 
 
 def sql_test(t):
@@ -1628,6 +1820,14 @@ def experimental_run(f):
 def exp_wrapper(t=10):
     for i in range(t):
         experimental_run(i)
+
+
+###############################################################################
+# Code Validation
+###############################################################################
+
+
+
 
 
 ###############################################################################

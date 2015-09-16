@@ -1,7 +1,7 @@
 # This file stores the string values for each product in the table
 
 table = {'000': 'BP_SPHERE',
-         '001': 'BP_CUBE',
+         '001': 'BP_SPHERE',
          '002': 'BR_SIZE+',
          '003': 'BR_SIZE-',
          '010': 'BR_S_M+',
