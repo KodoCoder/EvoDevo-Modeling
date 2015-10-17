@@ -1,0 +1,27 @@
+from setuptools import setup
+
+setup(name='evodevo',
+      version='0.1',
+      description='Model of robots undergoing evolution and development',
+      url='https://github.com/KodoCoder/EvoDevo-Modeling',
+      author='Joshua Hawthorne-Madell',
+      author_email='jhawthorne13@gmail.com',
+      license='BSD 3-Clause',
+      packages=['evodevo'],
+      data_files=[
+          ('io_bullet_physics',
+           ['io/body_blueprints_file.dat',
+            'io/joint_blueprints_file.dat',
+            'io/sensor_blueprints_file.dat',
+            'io/s2n_blueprint_file.dat',
+            'io/n2n_blueprint_file.dat',
+            'io/s2j_blueprint_file.dat',
+            'io/n2j_blueprint_file.dat',
+            'io/simulation_data.dat'])],
+      install_requires=[
+          'itertools',
+          'math',
+          'numpy',
+          'collections',
+          'random',
+          'os'])

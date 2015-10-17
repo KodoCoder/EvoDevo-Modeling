@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 
 {
   NoiseWorld demoApp;
-  bool graphicsOn (false);
+  bool graphicsOn (true);
   
   if (graphicsOn)
     {

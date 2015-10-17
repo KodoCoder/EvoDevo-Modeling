@@ -1,0 +1,12 @@
+import evodevo.initiate as edinit
+import print
+
+
+def test_generate_genomes():
+    test_input = (25, 18000)
+    assertEqual(len(edinit.germ_genomes(*test_input), 25))
+    for genome in edinit.generate_genomes(*test_input):
+        assertEqual(len(genome), 18000)
+        assert all((char == (0, 1, 2, 3)).any() for char in
+                   genome)
+

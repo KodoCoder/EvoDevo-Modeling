@@ -1,0 +1,39 @@
+
+# ### Code ###
+
+from part import Part, BodyPart, JointPart, NeuronPart, SensorPart, WirePart
+from part import diffusion_rate_pull, diffusion_rate_push, regulator_pool
+import setup as s
+
+parts_built = []
+
+
+def update_cycles():
+    """Updates all proto-parts, in series (step-by-step).
+
+    When proto-part is fully developed, this function removes the part
+    from parts_developing and places it into parts_built.  If the part
+    cannot develope fully, it is discarded"""
+    global s.parts_developing, regulator_pool
+    regulator_pool = [0.] * 40
+    while(s.parts_developing):
+        count = 0
+        for i in s.parts_developing:
+            # Check for non-producing proto-parts, and if they are all
+            # that is left, end development.
+            if i.regulators_per_update == 0:
+                count += 1
+                i._diffusion()
+                if count == len(s.parts_developing):
+                    s.parts_developing.remove(i)
+                    count -= 1
+            # Check if proto-part is done with development, and take out
+            # of the update_cycles if it is.
+            elif (i.capacity <= (i.regulatory_elements +
+                                 i.regulators_per_update)):
+                s.parts_developing.remove(i)
+                parts_built.append(i)
+            # Otherwise, keep updating
+            else:
+                i.update()
+                i._diffusion()

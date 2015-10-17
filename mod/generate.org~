@@ -1,0 +1,91 @@
+#+OPTIONS: ':nil date:nil toc:nil
+* Generate Population
+** Purpose
++ This code creates *n* genomes.  A genome has *c* characters, 18000
+  for the current project.  Each character is a digit from 0 to 3.
+** Use
++ This code will be used to create a list of genomes that define a
+  population of agents.  This code will only be used once per
+  population per experiment, because the following populations are
+  created via the selection and reproduction functions.
++ The genomes, one at a time, will be parsed into sequences, the
+  sequences will be developed into parts, the parts will be combined
+  into an agent, and then the blueprint for the agent will be piped to
+  the C++ Bullet Physics code to be created and "live" its life.
+* Code
+#+NAME: generate_code
+#+BEGIN_SRC python :results output replace pp :export both :tangle yes
+  # ### Code ###  
+  import copy
+  import random
+  
+  
+  def generate(n, c):
+      germ_genomes = list()
+      for i in range(n):
+          germ_genomes.append('')
+          for j in range(c):
+              germ_genomes[i] = ''.join((germ_genomes[i],
+                                         str(random.randrange(0, 4))))
+      return germ_genomes
+  
+  
+  # ### Tests ###
+  #  
+  # def length():
+  #     """Tests that germ_genomes and soma_genomes are the right length."""
+  #     global germ_genomes, soma_genomes
+  #     print "___Length Test___"
+  #     print "NON-ZERO CHECK ",
+  #     if len(germ_genomes) != 0:
+  #         print "passed; ",
+  #     else:
+  #         print "failed; ",
+  #     print "POPULATION CHECK ",
+  #     if len(germ_genomes) == len(soma_genomes):
+  #         print "passed; ",
+  #     else:
+  #         print "failed; ",
+  #     print "CHARACTER CHECK ",
+  #     val = True
+  #     for i in range(len(germ_genomes)):
+  #         if len(germ_genomes[i]) != 18000:
+  #             val = False
+  #         if len(soma_genomes[i]) != 18000:
+  #             val = False
+  #     if val:
+  #         print "passed."
+  #     else:
+  #         print "failed."
+  #    
+  #    
+  # def tethered():
+  #     """Tests that germ_genomes and soma_genomes are equal and independent"""
+  #     global germ_genomes, soma_genomes
+  #     print "___Tethered Test___"
+  #     print "EQUALITY CHECK ",
+  #     if germ_genomes == soma_genomes:
+  #         print "passed; ",
+  #     else:
+  #         print "failed; ",
+  #     # for i in range(len(germ_genomes)):
+  #     #     germ_genomes[i] += 'F'
+  #     # val = True
+  #     # for i in range(len(germ_genomes)):
+  #     #     if germ_genomes[i] == soma_genomes[i]:
+  #     #         val = False
+  #     print "INDEPENDENCE CHECK ",
+  #     if germ_genomes is not soma_genomes:
+  #         print "passed."
+  #     else:
+  #         print "failed."
+  #
+  """
+  generate(60, 18000)
+  length()
+  tethered()
+  """
+#+END_SRC
+
+#+RESULTS: generate_code
+
