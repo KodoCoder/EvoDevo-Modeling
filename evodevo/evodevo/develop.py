@@ -1,12 +1,9 @@
-"""develop --- a module that
-
-"""
 import itertools
 from more_itertools import peekable
 from collections import namedtuple
 
 from part import Part
-from subpart import BodyPart, JointPart, NeuronPart, SensorPart, WirePart
+from subpart import (BodyPart, JointPart, NeuronPart, SensorPart, WirePart)
 
 
 Body = namedtuple('Body', ['body_index', 'mounts_used', 'mounts_total'])
@@ -20,11 +17,26 @@ Mount = namedtuple('Mount', ['part_index', 'mounts_used', 'mounts_total'])
 
 
 def update_cycles(parts_developing):
-    """Updates all proto-parts, in series (step-by-step).
+    """
+    Returns a list of fully developed parts when given a list of proto-parts.
 
-    When proto-part is fully developed, this function removes the part
-    from parts_developing and places it into developed_parts.  If the part
-    cannot develope fully, it is discarded"""
+    Updates all proto-parts, in series (step-by-step). When proto-part is fully
+    developed, this function removes it from the cycle.  Some proto-parts may
+    not produce any regulatory elements; when they are all that is left then
+    discard them and end the function.
+
+    Args:
+        parts_developing: A list of undeveloped subpart objects, normally taken
+                          from the output of initiate.setup_agent(genome).
+                          Here, undeveloped means that the sum of regulatory-
+                          elements of a subpart is 0.
+
+    Returns:
+        developed_parts: A list of subpart objects that are fully developed.
+                         Here, fully developed means that the sum of
+                         regulatory-elements of a part is one update cycle away
+                         from the part's capacity.
+    """
     developed_parts = []
     while(parts_developing):
         count = 0
@@ -53,7 +65,7 @@ def update_cycles(parts_developing):
 
 def iterate_mounts_used(ntuple):
     """Returns given namedtuple with its mounts_used value increased by 1.
-    
+
     """
     return ntuple._replace(mounts_used=ntuple.mounts_used+1)
 

@@ -14,6 +14,7 @@ import blueprint
 import export
 import simulate
 import selection
+import grapher
 
 
 DataFromRun = namedtuple('DataFromRun', ['fitness', 'original_genome_1',
@@ -46,11 +47,14 @@ def run_one(genome):
 
 
 def run_multiple(population, generations):
-    genomes = initiate.generate_genomes(population, 18000)
     for generation in xrange(generations):
+        genomes = list()
         data_from_run = list()
-        for genome in genomes:
+        for agent in xrange(population):
+            genome = initiate.generate_genome(18000)
             data_from_run.append(DataFromRun(*run_one(genome)))
-        # print "Gen Done!"
+            genomes.append(genome)
+            grapher.run()
+            # print "Gen Done!"
         genomes = selection.next_generation(genomes, [i.fitness for i
                                                       in data_from_run])

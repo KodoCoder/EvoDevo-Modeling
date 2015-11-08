@@ -1,4 +1,5 @@
 # ### Code ###
+import pprint as pp
 import itertools
 from collections import namedtuple
 from more_itertools import peekable
@@ -26,20 +27,20 @@ def frame_raiser(bodypart_list, jointpart_list):
        initiates below the ground. (i.e., no y-value < .1)
     """
     for part in bodypart_list:
-        points_below = []
-        lowest_point = part.y_loc - part.size
-        if lowest_point < .1:
-            points_below.append((part.index, lowest_point))
+        points_below = list()
+        low_point = part.y_loc - part.size
+        if low_point < .1:
+            points_below.append(low_point)
     if points_below:
-        lowest_point = min(points_below, key=itemgetter(1))[1]
-        amount_to_raise = .1 - lowest_point
+        low_point = min(points_below)
+        amount_to_raise = .1 - low_point
 
         for i in xrange(len(bodypart_list)):
-            new_y = part.y_loc + amount_to_raise
+            new_y = bodypart_list[i].y_loc + amount_to_raise
             bodypart_list[i] = bodypart_list[i]._replace(y_loc=new_y)
         for i in xrange(len(jointpart_list)):
-            new_y = part.y_loc + amount_to_raise
-            bodypart_list[i] = bodypart_list[i]._replace(y_loc=new_y)
+            new_y = jointpart_list[i].y_loc + amount_to_raise
+            jointpart_list[i] = jointpart_list[i]._replace(y_loc=new_y)
         return [bodypart_list, jointpart_list]
     else:
         return [bodypart_list, jointpart_list]

@@ -1,9 +1,7 @@
-""" part --- a class module
-
-"""
 import itertools
 import math
 import numpy as np
+
 from my_table import table
 
 REGULATOR_POOL = [0.] * 40
@@ -12,17 +10,60 @@ DIFFUSION_RATE_PUSH = .05
 
 
 class Part(object):
+    """Super part class that defines general attributes and functionality.
+
+    This class has the basic information for all parts, such as the number and
+    kinds of codons and regulatory elements  (REs) the part contains. This
+    superclass should never be used directly, only via one of the five
+    subclasses: BodyPart, JointPart, NeuronPart, SensorPart, or WirePart.
+
+    Attributes:
+        gene_sequence:  The gene-sequence that defines the rest of the part's
+                        attributes.
+        capacity:  The number of REs a part can hold. This attribute is used to
+                   determine the when development ends, along with
+                   regulatory_elements and regulators_per_update.  This is
+                   determined by the number and magnitude of regulatory element
+                   capacity (REC) codons (see rc*).
+        regulatory_elements:  The number of regulatory_elements the part
+                              currently contains.
+        regulators_per_update:  The number of regulatory_elements the part
+                                produces every update cycle of development.
+                                This should be equal to the sum of all
+                                values for the codon_* attributes.
+        codon_*:  The count of how many of codon * this part's gene_sequence
+                  has, where * is a regulatory element codon. This number is
+                  set during the initialization phase, and is used during the
+                  development stage.
+        rc*:  The count of how many codon * this part's gene_sequence has,
+              where * is the magntitude of a regulatory element capacity codon.
+              These are used to calculate the capacity attribute of the part.
+        other_codons: Any codon that isn't a RE or a REC get's tallied here.
+                      These codons have no developmental implications, but may
+                      have influenced the type of part the was intiated.
+                      (I.e. syntax codons and part-type codons.)
+        reg_*:  The count of how many REs of type * the part currently has.
+                These counts are modified during the developmental period, and
+                their relative magnitudes end up determining the
+                characteristics of the part.
+        num_updates:  Counts how many update cycles a part has gone through.
+nnnn                      Used for analysis purposes.
+    """
     def __init__(self, gene_sequence):
-        self.is_developing = True
+        """
+        Initializes a part with attributes, codon number, and capacity.
+        """
+        # self.is_developing = True
         self.gene_sequence = gene_sequence
         self.capacity = 0
-        self.regulators_per_update = 0
         self.regulatory_elements = 0
+        self.regulators_per_update = 0
+        # FOR NEXT RELEASE
         # Turn numbered list of codons into a mapped list of codons
-        codon_list_nums = []
-        for i in range(0, len(gene_sequence), 3):
-            codon_list_nums.append(gene_sequence[i:i+3])
-        self.codon_list = [table[i] for i in codon_list_nums].sort()
+        # codon_list_nums = []
+        # for i in range(0, len(gene_sequence), 3):
+        #     codon_list_nums.append(gene_sequence[i:i+3])
+        # self.codon_list = [table[i] for i in codon_list_nums].sort()
         # BodyPart Codons
         self.codon_size = [0, 0]   # +/- codons
         self.codon_s_num = [0, 0]
@@ -54,15 +95,11 @@ class Part(object):
         self.rc90 = 0
         self.rc100 = 0
         self.rc110 = 0
-        self.rc120 = 0
         # Other codons
-        self.codon_junk = 0
-        # BODYREG LIST
-        self.index = 0
-        self.reg_list = [None] * 15
+        self.other_codons = 0
         # BodyPart REs
         self.reg_size = [0., 0.]  # +/- values
-        self.reg_s_num = [0., 0.] 
+        self.reg_s_num = [0., 0.]
         self.reg_j_num = [0., 0.]
         self.reg_n_num = [0, 0]
         self.reg_s_loc = [0., 0., 0., 0., 0., 0.]  # pos x,y,z then neg
@@ -71,7 +108,7 @@ class Part(object):
         self.reg_active_passive = [0., 0.]
         self.reg_free_rigid = [0., 0.]
         self.reg_upper_lower = [0., 0., 0., 0.]   # upper+/-, then lower...
-        self.reg_j_inputs = [0., 0.] 
+        self.reg_j_inputs = [0., 0.]
         # NeuronPart REs
         self.reg_n_inputs = [0., 0.]
         self.reg_n_outputs = [0., 0.]
@@ -81,159 +118,162 @@ class Part(object):
         self.reg_weight = [0., 0.]
         self.reg_direct = [0., 0.]
         # Data vars
-        self.codons_read = 0
         self.num_updates = 0
-        self.num_diffuses = 0
+        # Initialization methods
+        self._init_re_codons()
+        self._calculate_capacity()
+        self._count_regulators()
 
-    def calculate_capacity(self):
-        """Stores the number of REs a part can hold based on its codons."""
-        if self.__class__ != Part:
-            for i in range(0, len(self.gene_sequence), 3):
-                cur_codon = table[self.gene_sequence[i:i+3]]
-                if cur_codon == 'RC+30':
-                    self.rc30 += 1
-                    self.capacity += 30
-                elif cur_codon == 'RC+40':
-                    self.rc40 += 1
-                    self.capacity += 40
-                elif cur_codon == 'RC+50':
-                    self.rc50 += 1
-                    self.capacity += 50
-                elif cur_codon == 'RC+60':
-                    self.rc60 += 1
-                    self.capacity += 60
-                elif cur_codon == 'RC+70':
-                    self.rc70 += 1
-                    self.capacity += 70
-                elif cur_codon == 'RC+80':
-                    self.rc80 += 1
-                    self.capacity += 80
-                elif cur_codon == 'RC+90':
-                    self.rc90 += 1
-                    self.capacity += 90
-                elif cur_codon == 'RC+100':
-                    self.rc100 += 1
-                    self.capacity += 100
-                elif cur_codon == 'RC+110':
-                    self.rc110 += 1
-                    self.capacity += 110
+    def __eq__(self, other):
+        """Standard equality definition"""
+        if type(self) is type(other):
+            return self.__dict__ == other.__dict__
         else:
-            raise TypeError('Only a Part subclass can use this!')
+            return False
 
-    def count_regulators(self):
-        """Stores the total number of regulatory codons."""
-        if self.__class__ != Part:
-            for i in range(0, len(self.gene_sequence), 3):
-                cur_codon = table[self.gene_sequence[i:i+3]]
-                if cur_codon[1] == 'R':
-                    self.regulators_per_update += 1
-        else:
-            raise TypeError('Only a Part subclass can use this!')
+    def __ne__(self, other):
+        """Standard non-equality definition"""
+        return not self.__eq__(other)
 
-    def init_codons(self):
-        """Stores how many regulatory codons of each type the codon has."""
-        if self.__class__ != Part:
-            for i in range(0, len(self.gene_sequence), 3):
-                cur_codon = table[self.gene_sequence[i:i+3]]
-                # print cur_codon,
-                self.codons_read += 1
-                # BodyPart Codons
-                if cur_codon == 'BR_SIZE+':
-                    self.codon_size[0] += 1
-                elif cur_codon == 'BR_SIZE-':
-                    self.codon_size[1] += 1
-                elif cur_codon == 'BR_S_M+':
-                    self.codon_s_num[0] += 1
-                elif cur_codon == 'BR_S_M-':
-                    self.codon_s_num[1] += 1
-                elif cur_codon == 'BR_J_M+':
-                    self.codon_j_num[0] += 1
-                elif cur_codon == 'BR_J_M-':
-                    self.codon_j_num[1] += 1
-                elif cur_codon == 'BR_N_M+':
-                    self.codon_n_num[0] += 1
-                elif cur_codon == 'BR_N_M-':
-                    self.codon_n_num[1] += 1
-                elif cur_codon == 'BR_S_X+':
-                    self.codon_s_loc[0] += 1
-                elif cur_codon == 'BR_S_X-':
-                    self.codon_s_loc[3] += 1
-                elif cur_codon == 'BR_S_Y+':
-                    self.codon_s_loc[1] += 1
-                elif cur_codon == 'BR_S_Y-':
-                    self.codon_s_loc[4] += 1
-                elif cur_codon == 'BR_S_Z+':
-                    self.codon_s_loc[2] += 1
-                elif cur_codon == 'BR_S_Z-':
-                    self.codon_s_loc[5] += 1
-                elif cur_codon == 'BR_J_X+':
-                    self.codon_j_loc[0] += 1
-                elif cur_codon == 'BR_J_X-':
-                    self.codon_j_loc[3] += 1
-                elif cur_codon == 'BR_J_Y+':
-                    self.codon_j_loc[1] += 1
-                elif cur_codon == 'BR_J_Y-':
-                    self.codon_j_loc[4] += 1
-                elif cur_codon == 'BR_J_Z+':
-                    self.codon_j_loc[2] += 1
-                elif cur_codon == 'BR_J_Z-':
-                    self.codon_j_loc[5] += 1
-                # JointPart Codons
-                elif cur_codon == 'JR_AP+':
-                    self.codon_active_passive[0] += 1
-                elif cur_codon == 'JR_AP-':
-                    self.codon_active_passive[1] += 1
-                elif cur_codon == 'JR_FR+':
-                    self.codon_free_rigid[0] += 1
-                elif cur_codon == 'JR_FR-':
-                    self.codon_free_rigid[1] += 1
-                elif cur_codon == 'JR_U+':
-                    self.codon_upper_lower[0] += 1
-                elif cur_codon == 'JR_U-':
-                    self.codon_upper_lower[1] += 1
-                elif cur_codon == 'JR_L+':
-                    self.codon_upper_lower[2] += 1
-                elif cur_codon == 'JR_L-':
-                    self.codon_upper_lower[3] += 1
-                elif cur_codon == 'JR_I+':
-                    self.codon_j_inputs[0] += 1
-                elif cur_codon == 'JR_I-':
-                    self.codon_j_inputs[1] += 1
+    def _calculate_capacity(self):
+        """Sets the capacity attribute based on rc* numbers"""
+        for i in range(0, len(self.gene_sequence), 3):
+            cur_codon = table[self.gene_sequence[i:i+3]]
+            if cur_codon == 'RC+30':
+                self.rc30 += 1
+                self.capacity += 30
+            elif cur_codon == 'RC+40':
+                self.rc40 += 1
+                self.capacity += 40
+            elif cur_codon == 'RC+50':
+                self.rc50 += 1
+                self.capacity += 50
+            elif cur_codon == 'RC+60':
+                self.rc60 += 1
+                self.capacity += 60
+            elif cur_codon == 'RC+70':
+                self.rc70 += 1
+                self.capacity += 70
+            elif cur_codon == 'RC+80':
+                self.rc80 += 1
+                self.capacity += 80
+            elif cur_codon == 'RC+90':
+                self.rc90 += 1
+                self.capacity += 90
+            elif cur_codon == 'RC+100':
+                self.rc100 += 1
+                self.capacity += 100
+            elif cur_codon == 'RC+110':
+                self.rc110 += 1
+                self.capacity += 110
+
+    def _count_regulators(self):
+        """Sets the regulators_per_update attribute."""
+        for i in range(0, len(self.gene_sequence), 3):
+            cur_codon = table[self.gene_sequence[i:i+3]]
+            if cur_codon[1] == 'R':
+                self.regulators_per_update += 1
+
+    def _init_re_codons(self):
+        """Sets the codon_* attributes."""
+        for i in range(0, len(self.gene_sequence), 3):
+            cur_codon = table[self.gene_sequence[i:i+3]]
+            # BodyPart Codons
+            if cur_codon == 'BR_SIZE+':
+                self.codon_size[0] += 1
+            elif cur_codon == 'BR_SIZE-':
+                self.codon_size[1] += 1
+            elif cur_codon == 'BR_S_M+':
+                self.codon_s_num[0] += 1
+            elif cur_codon == 'BR_S_M-':
+                self.codon_s_num[1] += 1
+            elif cur_codon == 'BR_J_M+':
+                self.codon_j_num[0] += 1
+            elif cur_codon == 'BR_J_M-':
+                self.codon_j_num[1] += 1
+            elif cur_codon == 'BR_N_M+':
+                self.codon_n_num[0] += 1
+            elif cur_codon == 'BR_N_M-':
+                self.codon_n_num[1] += 1
+            elif cur_codon == 'BR_S_X+':
+                self.codon_s_loc[0] += 1
+            elif cur_codon == 'BR_S_X-':
+                self.codon_s_loc[3] += 1
+            elif cur_codon == 'BR_S_Y+':
+                self.codon_s_loc[1] += 1
+            elif cur_codon == 'BR_S_Y-':
+                self.codon_s_loc[4] += 1
+            elif cur_codon == 'BR_S_Z+':
+                self.codon_s_loc[2] += 1
+            elif cur_codon == 'BR_S_Z-':
+                self.codon_s_loc[5] += 1
+            elif cur_codon == 'BR_J_X+':
+                self.codon_j_loc[0] += 1
+            elif cur_codon == 'BR_J_X-':
+                self.codon_j_loc[3] += 1
+            elif cur_codon == 'BR_J_Y+':
+                self.codon_j_loc[1] += 1
+            elif cur_codon == 'BR_J_Y-':
+                self.codon_j_loc[4] += 1
+            elif cur_codon == 'BR_J_Z+':
+                self.codon_j_loc[2] += 1
+            elif cur_codon == 'BR_J_Z-':
+                self.codon_j_loc[5] += 1
+            # JointPart Codons
+            elif cur_codon == 'JR_AP+':
+                self.codon_active_passive[0] += 1
+            elif cur_codon == 'JR_AP-':
+                self.codon_active_passive[1] += 1
+            elif cur_codon == 'JR_FR+':
+                self.codon_free_rigid[0] += 1
+            elif cur_codon == 'JR_FR-':
+                self.codon_free_rigid[1] += 1
+            elif cur_codon == 'JR_U+':
+                self.codon_upper_lower[0] += 1
+            elif cur_codon == 'JR_U-':
+                self.codon_upper_lower[1] += 1
+            elif cur_codon == 'JR_L+':
+                self.codon_upper_lower[2] += 1
+            elif cur_codon == 'JR_L-':
+                self.codon_upper_lower[3] += 1
+            elif cur_codon == 'JR_I+':
+                self.codon_j_inputs[0] += 1
+            elif cur_codon == 'JR_I-':
+                self.codon_j_inputs[1] += 1
                 # NeuronPart Codons
-                elif cur_codon == 'NR_I+':
-                    self.codon_n_inputs[0] += 1
-                elif cur_codon == 'NR_I-':
-                    self.codon_n_inputs[1] += 1
-                elif cur_codon == 'NR_O+':
-                    self.codon_n_outputs[0] += 1
-                elif cur_codon == 'NR_O-':
-                    self.codon_n_outputs[1] += 1
+            elif cur_codon == 'NR_I+':
+                self.codon_n_inputs[0] += 1
+            elif cur_codon == 'NR_I-':
+                self.codon_n_inputs[1] += 1
+            elif cur_codon == 'NR_O+':
+                self.codon_n_outputs[0] += 1
+            elif cur_codon == 'NR_O-':
+                self.codon_n_outputs[1] += 1
                 # SensorPart Codons
-                elif cur_codon == 'SR_O+':
-                    self.codon_s_outputs[0] += 1
-                elif cur_codon == 'SR_O-':
-                    self.codon_s_outputs[1] += 1
+            elif cur_codon == 'SR_O+':
+                self.codon_s_outputs[0] += 1
+            elif cur_codon == 'SR_O-':
+                self.codon_s_outputs[1] += 1
                 # WirePart Codons
-                elif cur_codon == 'WR_W+':
-                    self.codon_weight[0] += 1
-                elif cur_codon == 'WR_W-':
-                    self.codon_weight[1] += 1
-                elif cur_codon == 'WR_D+':
-                    self.codon_direct[0] += 1
-                elif cur_codon == 'WR_D-':
-                    self.codon_direct[1] += 1
-                # Everything else
-                elif (cur_codon[1] == 'P' or cur_codon[0] == 'R' or
-                      cur_codon[1] == 'T'):
-                    self.codon_junk += 1
-                else:
-                    raise KeyError('Take a look at your Table!')
-        else:
-            raise TypeError('Only a Part subclass can use this!')
+            elif cur_codon == 'WR_W+':
+                self.codon_weight[0] += 1
+            elif cur_codon == 'WR_W-':
+                self.codon_weight[1] += 1
+            elif cur_codon == 'WR_D+':
+                self.codon_direct[0] += 1
+            elif cur_codon == 'WR_D-':
+                self.codon_direct[1] += 1
+            # Everything else
+            elif (cur_codon[1] == 'P' or cur_codon[0] == 'R' or
+                  cur_codon[1] == 'T'):
+                self.other_codons += 1
+            else:
+                raise KeyError('Take a look at your Table!')
 
     def get_push_list(self):
+        """Returns list of REs to push to REGULATOR_POOL and modifies RP."""
         global REGULATOR_POOL, DIFFUSION_RATE_PUSH
-        push_list = []
+        push_list = list()
         # BodyPart REs
         push_list += self.reg_size
         push_list += self.reg_s_num
@@ -327,14 +367,17 @@ class Part(object):
         self.reg_direct[1] = max(0, self.reg_direct[1] + phpllst[39])
 
     def _diffusion(self):
-        """Wrapper for diffusion sub_methods.
-        
+        """
+        Wrapper for diffusion sub_methods.
+
         Uses get_pull_list(), get_push_list(), and use_phpl_list(),
         with added check that class-instance regulatory_elements
-        doesn't drop below 0. """ 
+        doesn't drop below 0.
+        """
         pllst = self.get_pull_list()
         phlst = self.get_push_list()
-        phpllst = [i - j for i, j in itertools.izip(phlst, pllst)]
+        # Negative values means more pushed than pulled
+        phpllst = [i - j for i, j in itertools.izip(pllst, phlst)]
         self.use_phpl_list(phpllst)
         self.regulatory_elements = max(0, self.regulatory_elements +
                                        sum(phpllst))
