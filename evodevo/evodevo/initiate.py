@@ -5,9 +5,6 @@ from part import Part
 from subpart import (BodyPart, JointPart, NeuronPart, SensorPart, WirePart)
 
 
-BUILD_ERROR_RATE = .005
-
-
 def generate_genome(num_chars):
     """
     Returns string of 0s--3s that represents a genome.
@@ -26,7 +23,7 @@ def generate_genome(num_chars):
     return germ_genome
 
 
-def add_noise(genome, error_rate=BUILD_ERROR_RATE):
+def add_noise(genome, error_rate):
     """
     Returns a copy of inputted genomes with some mutation.
 
@@ -119,7 +116,7 @@ def setup_part(part_sequence):
     return new_part
 
 
-def setup_agent(genome):
+def setup_agent(genome, error_rate):
     """
     Returns a list of proto_parts and the genome that generated those parts.
 
@@ -133,7 +130,7 @@ def setup_agent(genome):
         proto_parts: a list of part objects.
     """
     proto_parts = list()
-    building_gene_code = add_noise(genome)
+    building_gene_code = add_noise(genome, error_rate)
     sequence_list = genome_parser(building_gene_code)
     for sequence in sequence_list:
         proto_part = setup_part(sequence)

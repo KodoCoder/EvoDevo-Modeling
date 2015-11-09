@@ -285,7 +285,9 @@ class NoiseWorld : public GlutDemoApplication
 	  sphereTransform.setIdentity();
 	  btVector3 position (x, y, z);
 	  sphereTransform.setOrigin(position);
-	  btScalar mass = 1;
+	  btScalar volume = (4/3) * size * size * size * 3.14159265359;
+	  btScalar density = 1.9098593171;
+	  btScalar mass = volume * density;
 	  bool isDynamic = (mass != 0.f);
 	  btVector3 localInertia(0,0,0);
 	  if (isDynamic)

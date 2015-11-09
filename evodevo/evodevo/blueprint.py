@@ -26,14 +26,14 @@ def frame_raiser(bodypart_list, jointpart_list):
     """Returns modified lists such that no part of the frame
        initiates below the ground. (i.e., no y-value < .1)
     """
+    points_below = list()
     for part in bodypart_list:
-        points_below = list()
         low_point = part.y_loc - part.size
         if low_point < .1:
             points_below.append(low_point)
     if points_below:
         low_point = min(points_below)
-        amount_to_raise = .1 - low_point
+        amount_to_raise = abs(low_point) + .1
 
         for i in xrange(len(bodypart_list)):
             new_y = bodypart_list[i].y_loc + amount_to_raise
@@ -61,17 +61,17 @@ def frame_to_send(developed_parts, frame_parts):
     joint_list = [i for i in developed_parts
                   if i.__class__ == JointPart]
     jointpart_list = []
-    body_id = 0
+    # body_id = 0
     joint_id = 0
 
     making_base = body_list[0]
     size = making_base.characteristics.size
     x, y, z = 0., size, 0.
-    out_body = OutputBody(body_id,
+    out_body = OutputBody(0,
                           x, y, z,
                           size)
     bodypart_list.append(out_body)
-    body_id += 1
+    # body_id += 1
 
     for part in frame_parts[1]:
         body_index = part.other_body
@@ -94,7 +94,7 @@ def frame_to_send(developed_parts, frame_parts):
         axis_z = 1 if axis_decider == 2 else 0
 
         making_joint = joint_list[part.joint]
-        out_joint = OutputJoint(joint_id, base_index+1, body_id,
+        out_joint = OutputJoint(joint_id, base_index, body_index,
                                 joint_x, joint_y, joint_z,
                                 axis_x, axis_y, axis_z,
                                 making_joint.characteristics.lower_limit,
@@ -109,11 +109,11 @@ def frame_to_send(developed_parts, frame_parts):
         making_body.rotate_body(mount_vector)
         rotated_body = making_body
         body_list[body_index] = rotated_body
-        out_body = OutputBody(body_id,
+        out_body = OutputBody(body_index,
                               x, y, z,
                               size)
         bodypart_list.append(out_body)
-        body_id += 1
+        # body_id += 1
     bodypart_list, jointpart_list = frame_raiser(bodypart_list,
                                                  jointpart_list)
     return [bodypart_list, jointpart_list, body_list]

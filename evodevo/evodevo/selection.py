@@ -6,11 +6,8 @@ from operator import itemgetter
 
 from initiate import add_noise
 
-REPRODUCTION_ERROR_RATE = .005
 
-
-def next_generation(current_population, fitness_list,
-                    error_rate=REPRODUCTION_ERROR_RATE):
+def next_generation(current_population, fitness_list, error_rate):
     """Returns a list of gene-codes the size of the current_population,
         based on the fitness scores provided
 
@@ -22,27 +19,26 @@ def next_generation(current_population, fitness_list,
     third_quarter = int(round(population_size * .8))
     fourth_quarter = population_size
     fitness_list = [c for c in enumerate(fitness_list)]
-    selected = list()
+    selected_index = list()
     for i in xrange(first_quarter):
         agent = max(fitness_list, key=itemgetter(1))
         for i in xrange(4):
-            selected.append(agent)
+            selected_index.append(agent[0])
         fitness_list.remove(agent)
     for i in xrange(first_quarter, second_quarter):
         agent = max(fitness_list, key=itemgetter(1))
         for i in xrange(3):
-            selected.append(agent)
+            selected_index.append(agent[0])
         fitness_list.remove(agent)
     for i in xrange(second_quarter, third_quarter):
         agent = max(fitness_list, key=itemgetter(1))
         for i in xrange(2):
-            selected.append(agent)
+            selected_index.append(agent[0])
         fitness_list.remove(agent)
     for i in xrange(third_quarter, fourth_quarter):
         agent = max(fitness_list, key=itemgetter(1))
-        selected.append(agent)
+        selected_index.append(agent[0])
         fitness_list.remove(agent)
-    for agent in selected:
-        new_population.append(add_noise(current_population[agent[0]],
-                                        error_rate))
+    for index in selected_index:
+        new_population.append(add_noise(current_population[index], error_rate))
     return new_population

@@ -4,6 +4,7 @@
 # Temp files
 *.dat
 *~
+*#
 
 # C++ stuff
 # Compiled Object files
@@ -39,8 +40,8 @@
 # Python stuff
 # Byte-compiled / optimized / DLL files
 __pycache__/
+test/__pycache__/
 *.pyc
-# *$py.class
 
 # C extensions
 *.so
