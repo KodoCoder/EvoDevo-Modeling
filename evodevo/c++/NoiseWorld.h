@@ -4,7 +4,7 @@
 #include "btBulletCollisionCommon.h"
 #include "btBulletDynamicsCommon.h"
 #include <string>
-#include <vector>
+//#include <vector>
 #include <stdio.h>
 #include <math.h>
 
@@ -22,8 +22,8 @@ using namespace std;
 class BodyPart { 
  public:
   int id;
-  long double x, y, z;
-  long double size;
+  btScalar x, y, z;
+  btScalar size;
   void readBlueprint(istringstream&);
   void printSelf();
 };
@@ -33,10 +33,10 @@ void BodyPart::readBlueprint (istringstream &blueprintRow) {
     for (int i=0; i<5; i++) {
       getline(blueprintRow, val, ',');
       if (i==0) { id = stoi(val); }
-      if (i==1) { x = stod(val); }
-      if (i==2) { y = stod(val); }
-      if (i==3) { z = stod(val); }
-      if (i==4) { size = stod(val); }
+      if (i==1) { x = stof(val); }
+      if (i==2) { y = stof(val); }
+      if (i==3) { z = stof(val); }
+      if (i==4) { size = stof(val); }
     }
 }
 
@@ -49,7 +49,7 @@ void BodyPart::printSelf() {
 class JointPart {
  public:
   int id, base_body, other_body;
-  long double ax, ay, az, px, py, pz;
+  btScalar ax, ay, az, px, py, pz;
   btScalar lower_limit, upper_limit;
   bool motor;
   void readBlueprint(istringstream&);
@@ -63,14 +63,14 @@ void JointPart::readBlueprint (istringstream &blueprintRow) {
     if (i==0) { id = stoi(val); }
     if (i==1) { base_body = stoi(val); }
     if (i==2) { other_body = stoi(val); }
-    if (i==3) { px = stod(val); }
-    if (i==4) { py = stod(val); }
-    if (i==5) { pz = stod(val); }
-    if (i==6) { ax = stod(val); }
-    if (i==7) { ay = stod(val); }
-    if (i==8) { az = stod(val); }
-    if (i==9) { lower_limit = stod(val); }
-    if (i==10) { upper_limit = stod(val); }
+    if (i==3) { px = stof(val); }
+    if (i==4) { py = stof(val); }
+    if (i==5) { pz = stof(val); }
+    if (i==6) { ax = stof(val); }
+    if (i==7) { ay = stof(val); }
+    if (i==8) { az = stof(val); }
+    if (i==9) { lower_limit = stof(val); }
+    if (i==10) { upper_limit = stof(val); }
     if (i==11) { 
       if (val[0]=='T') { motor = true; }
       if (val[0]=='F') { motor = false; }
@@ -91,7 +91,7 @@ class SensorPart
 {
  public:
   int id, body_id;
-  long double x, y, z;
+  btScalar x, y, z;
   void readBlueprint(istringstream&);
   void printSelf();
 };
@@ -102,9 +102,9 @@ void SensorPart::readBlueprint (istringstream &blueprintRow) {
     getline(blueprintRow, val, ',');
     if (i==0) { id = stoi(val); }
     if (i==1) { body_id = stoi(val); }
-    if (i==3) { x = stod(val); }
-    if (i==3) { y = stod(val); }
-    if (i==4) { z = stod(val); }
+    if (i==3) { x = stof(val); }
+    if (i==3) { y = stof(val); }
+    if (i==4) { z = stof(val); }
   }
 }
 
@@ -126,7 +126,7 @@ class NoiseWorld : public GlutDemoApplication
 	// ---Control variables---
 	bool oneStep;
 	bool pause;
-	btScalar stepTime;
+	btScalar stepTime = btScalar(1.)/btScalar(60.);
 
 	// ---Bullet Physics constructs for robot parts---
 	btAlignedObjectArray<btRigidBody*> m_bodyparts;
@@ -138,8 +138,8 @@ class NoiseWorld : public GlutDemoApplication
 	// ---Sensor_touches variables---
 	int sensor_body_id;
 	int sensor_touches_id;
-	long double the_size;
-	const btScalar sensor_area = .2;
+	btScalar body_size;
+	const btScalar sensor_radius = .1;
 	btScalar bp_x;
 	btScalar bp_y;
 	btScalar bp_z;
@@ -150,43 +150,37 @@ class NoiseWorld : public GlutDemoApplication
 	btScalar t_y;
 	btScalar t_z;
 	// ---ANN outputs---
-	vector<long double> output_s2n;
-	vector<long double> output_n2n;
-	vector<long double> output_s2j;
-	vector<long double> output_n2j;
-	long double motor_command;
+	btAlignedObjectArray<btScalar> output_s2n;
+	btAlignedObjectArray<btScalar> output_n2n;
+	btAlignedObjectArray<btScalar> output_s2j;
+	btAlignedObjectArray<btScalar> output_n2j;
+	btScalar motor_command;
  public:
-	// ---Blueprint Variables---
-	vector<BodyPart> bodys;
-	vector<JointPart> joints;
-	vector<SensorPart> sensors;
-	vector<long double> sensorTouches;
+	// ---Blueprint Variable---
+	int simulation_number;
+	char io_file[80];
+	btAlignedObjectArray<BodyPart> bodys;
+	btAlignedObjectArray<JointPart> joints;
+	btAlignedObjectArray<SensorPart> sensors;
 	// ---ANN Matrices---
-	vector<vector<long double> > weights_s2n;
-	vector<vector<long double> > weights_n2n;	
-	vector<vector<long double> > weights_s2j;
-	vector<vector<long double> > weights_n2j;
+	btAlignedObjectArray<btAlignedObjectArray<btScalar> > weights_s2n;
+	btAlignedObjectArray<btAlignedObjectArray<btScalar> > weights_n2n;	
+	btAlignedObjectArray<btAlignedObjectArray<btScalar> > weights_s2j;
+	btAlignedObjectArray<btAlignedObjectArray<btScalar> > weights_n2j;
 	// ---Collision variables---
-	int * IDs;
- 	vector<int> touches;
-	vector<btVector3> touchesPoints;
+	//int * IDs;
+	btAlignedObjectArray<int*> IDs;
+ 	btAlignedObjectArray<int> bodyTouches;
+	btAlignedObjectArray<btScalar> sensorTouches;
+	btAlignedObjectArray<btVector3> touchesPoint;
 	// ---Display Variables---
 	bool drawGraphics; 
 	unsigned long int timeStep;
 
 	// Methods
-	NoiseWorld()
+	btAlignedObjectArray<BodyPart> UseBodyBlueprints(string filename)
 	{
-	}
-	virtual ~NoiseWorld()
-	{
-	  exitPhysics();
-	}
-
-
-	vector<BodyPart> UseBodyBlueprints(string filename)
-	{
-	  vector<BodyPart> bodyList;
+	  btAlignedObjectArray<BodyPart> bodyList;
 	  string line;
 	  ifstream blueprintFile(filename);
 	  while (getline(blueprintFile, line))
@@ -201,9 +195,9 @@ class NoiseWorld : public GlutDemoApplication
 	}
 
 
-	vector<JointPart> UseJointBlueprints(string filename)
+	btAlignedObjectArray<JointPart> UseJointBlueprints(string filename)
 	{
-	  vector<JointPart> jointList;
+	  btAlignedObjectArray<JointPart> jointList;
 	  string line;
 	  ifstream blueprintFile(filename);
 	  while (getline(blueprintFile, line))
@@ -218,9 +212,9 @@ class NoiseWorld : public GlutDemoApplication
 	}
 	  
 	
-	vector<SensorPart> UseSensorBlueprints(string filename)
+	btAlignedObjectArray<SensorPart> UseSensorBlueprints(string filename)
 	  {
-	    vector<SensorPart> sensorList;
+	    btAlignedObjectArray<SensorPart> sensorList;
 	    string line;
 	    ifstream blueprintFile(filename);
 	    while (getline(blueprintFile, line))
@@ -235,23 +229,22 @@ class NoiseWorld : public GlutDemoApplication
 	  }
 
 	
-	vector<vector<long double > > UseMatrixBlueprints(string filename)
+	btAlignedObjectArray<btAlignedObjectArray<btScalar > > UseMatrixBlueprints(string filename)
 	  {
-	    vector<vector<long double > > matrix;
-	    vector<long double> row;
+	    btAlignedObjectArray<btAlignedObjectArray<btScalar > > matrix;
+	    btAlignedObjectArray<btScalar> row;
 	    string line;
 	    string element;
 	    ifstream blueprintFile(filename);
-	    //if (blueprintFile.peek() != std::ifstream::traits_type::eof())
 	    while (getline(blueprintFile, line))
 	      {
 		istringstream lineStream(line);
 		while (getline(lineStream, element, ','))
 		  {
-		    row.push_back(stod(element));
+		    row.push_back(stof(element));
 		  }
 		matrix.push_back(row);
-		row.clear();
+		row.resize(0);
 	      }
 	    return matrix;
 	  }
@@ -332,18 +325,19 @@ class NoiseWorld : public GlutDemoApplication
 	  btVector3 locAxis1 = AxisWorldToLocal(body1, axis);
 	  btVector3 locPoint2 = PointWorldToLocal(body2, position);
 	  btVector3 locAxis2 = AxisWorldToLocal(body2, axis);
-	  m_jointparts.push_back(new btHingeConstraint(*m_bodyparts[body1], *m_bodyparts[body2], 
-						       locPoint1, locPoint2, locAxis1, locAxis2,
-						       false));
-	    m_jointparts[index]->setLimit(lower, upper);
-	    m_dynamicsWorld->addConstraint(m_jointparts[index], true);
-	    m_jointparts[index]->enableMotor(motor);
-	  }
+	  btHingeConstraint* joint;
+	  joint = new btHingeConstraint(*m_bodyparts[body1], *m_bodyparts[body2], 
+					locPoint1, locPoint2, locAxis1, locAxis2,
+					true);
+	  joint->setLimit(lower, upper);	
+	  m_jointparts.push_back(joint);
+	  m_dynamicsWorld->addConstraint(m_jointparts[index], false);
+	  m_jointparts[index]->enableMotor(motor);
+	}
+	
 
-
-	void ActuateJoint(int jointIndex, double desiredAngle, double dt)
+	void ActuateJoint(int jointIndex, btScalar desiredAngle, btScalar dt)
 	{
-	  //m_jointparts[jointIndex]->enableMotor(joints[jointIndex].motor);
 	  m_jointparts[jointIndex]->setMaxMotorImpulse(.4);
 	  m_jointparts[jointIndex]->setMotorTarget(desiredAngle, dt);
 	}
@@ -359,6 +353,8 @@ class NoiseWorld : public GlutDemoApplication
 	void DeleteObject(int index)
 	{
 	  delete m_geomparts[index+1];
+	  delete m_bodyparts[index]->getMotionState();
+	  m_dynamicsWorld->removeCollisionObject(m_bodyparts[index]);
 	  delete m_bodyparts[index];
 	}
 
@@ -368,22 +364,19 @@ class NoiseWorld : public GlutDemoApplication
 	  delete m_jointparts[index];
 	}
 
-	vector<long double> CalculateLayer(vector<vector<long double > > matrix, 
-					   vector<long double> dataIn)
+
+	btAlignedObjectArray<btScalar> CalculateLayer(btAlignedObjectArray<
+						      btAlignedObjectArray<btScalar> > matrix, 
+						      btAlignedObjectArray<btScalar> dataIn)
 	  {
-	    //cout << matrix.size() << ',' << matrix[0].size() << endl;
-	    //cout << dataIn.size() << endl;
-	    long double d_hold (0);
-	    vector<long double> output;
+	    btScalar d_hold (0);
+	    btAlignedObjectArray<btScalar> output;
 	    for (int j=0; j<matrix[0].size(); j++)
 	      {
 		d_hold = 0;
 		for (int i=0; i<dataIn.size(); i++)
 		  {
-		    //cout << i << ", " << j << endl;
-		    //cout << dataIn[i] << ", " << matrix[i][j] << endl;
 		    d_hold += dataIn[i] * matrix[i][j];
-		    //cout << endl << endl;
 		  }
 		output.push_back(d_hold);
 	      }
@@ -393,37 +386,37 @@ class NoiseWorld : public GlutDemoApplication
 
 	int Save_Position(bool completed)
 	{
-	  if (completed) 
+	  btVector3 position = m_bodyparts[0]->getCenterOfMassTransform().getOrigin();
+	  btScalar distance = 0;
+	  if (completed)
 	    {
-	      btVector3 position = m_bodyparts[0]->getCenterOfMassTransform().getOrigin();
-	      btScalar distance = sqrt(pow(position.getX(), 2) + pow(position.getZ(), 2));
-	      ofstream fitsFile("../io/simulation_data.dat", ios::out);
-	      fitsFile << distance << endl;
-	      //fitsFile << built_joints.size()+1 << endl;
-	      //fitsFile << built_joints.size() << endl;
-	      //fitsFile << built_sensors.size() << endl;
-	      //fitsFile << built_neurons.size() << endl;
-	      //fitsFile << built_s_wires.size() + built_n_wires.size() << endl;
-	      fitsFile.close();
-	      return 0;
+	      distance = sqrt(pow(position.getX(), 2) + pow(position.getZ(), 2));
 	    }
-	  else 
-	    { 
-	      ofstream fitsFile("../python/fits.dat", ios::out);
-	      fitsFile << 0 << endl;
-	      fitsFile << 0 << endl;
-	      fitsFile << 0 << endl;
-	      fitsFile << 0 << endl;
-	      fitsFile << 0 << endl;
-	      fitsFile << 0 << endl;
-	      fitsFile.close();
-	      return 0;
-	    } 
+	  string sim_str = to_string(simulation_number);
+	  string extension (".dat");
+	  int index;
+	  string fitsFileName ("sim_.dat");
+	  fitsFileName.insert(0, io_file);
+	  index = fitsFileName.find(extension);
+	  fitsFileName.insert(index, sim_str);
+	  ofstream fitsFile(fitsFileName, ios::out);
+	  fitsFile << distance << endl;
+	  fitsFile.close();
+	  //exit(0);
+	  //exitPhysics();
+	  return 0;
 	}
 
 	void initPhysics();
 
 	void exitPhysics();
+
+	void ParseCmdLine(char * swtxt);
+	
+	virtual ~NoiseWorld()
+	{
+	  exitPhysics();
+	}
 
 	virtual void clientMoveAndDisplay();
 

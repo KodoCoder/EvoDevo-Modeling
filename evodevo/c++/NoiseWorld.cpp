@@ -20,7 +20,7 @@ using namespace std;
 
 #define COMMENTS false
 #define RUNCOMMENTS false
-#define DEGS_TO_RADS 3.141592653589793 / 180.f
+#define UNITS_TO_RADS 3.141592653589793
 
 //g++ -std=gnu++11 -g -v -I/root/sim/bullet-2.82-r2704/Demos/OpenGL/ -I/root/sim/bullet-2.82-r2704/src/ ./main.cpp -L/root/sim/bullet-build/Demos/OpenGl/ -L/root/sim/bullet-build/Demos/OpenGL/ -L/root/sim/bullet-build/src/BulletDynamics/ -L/root/sim/bullet-build/src/BulletCollision/ -L/root/sim/bullet-build/src/LinearMath -lOpenGLSupport -lGL -lGLU -lglut -lBulletDynamics -lBulletCollision -lLinearMath -o ./app
 
@@ -31,19 +31,19 @@ static NoiseWorld* noiseWorld;
 bool myContactProcessedCallback(btManifoldPoint& cp, void* body0, void* body1)
 {
   int *ID1, *ID2;
-  btCollisionObject* o1 = static_cast<btCollisionObject*>(body0);
-  btCollisionObject* o2 = static_cast<btCollisionObject*>(body1);
+  btCollisionObject* obA = static_cast<btCollisionObject*>(body0);
+  btCollisionObject* obB = static_cast<btCollisionObject*>(body1);
   //int groundID = 0;
   
-  ID1 = static_cast<int*>(o1->getUserPointer());
-  ID2 = static_cast<int*>(o2->getUserPointer());
+  ID1 = static_cast<int*>(obA->getUserPointer());
+  ID2 = static_cast<int*>(obB->getUserPointer());
   if (RUNCOMMENTS)
     {cout << "ID1 = " << *ID1 << ", ID2 = " << *ID2 << endl;}
   
-  noiseWorld->touches[*ID1] = 1;
-  noiseWorld->touches[*ID2] = 1;
-  noiseWorld->touchesPoints[*ID1] = cp.m_positionWorldOnB;
-  noiseWorld->touchesPoints[*ID2] = cp.m_positionWorldOnB;
+  noiseWorld->bodyTouches[*ID1] = 1;
+  noiseWorld->bodyTouches[*ID2] = 1;
+  noiseWorld->touchesPoint[*ID1] = cp.m_localPointA;
+  noiseWorld->touchesPoint[*ID2] = cp.m_localPointB;
 
   return true;
 }
@@ -57,7 +57,7 @@ void NoiseWorld::initPhysics()
   noiseWorld = this;
   gContactProcessedCallback = myContactProcessedCallback;
 
-  // ============= Getting, Manipulating, and Storing Blueprints ====================
+  // ============= Setting up important things  ====================
 
   timeStep = 0;
   pause = false;
@@ -95,49 +95,88 @@ void NoiseWorld::initPhysics()
 
   // ================ Objects  ========================
 
-
   // Files for part blueprints
-  string bodyFile ("../io/body_blueprints_file.dat");
-  string jointFile ("../io/joint_blueprints_file.dat");
-  string sensorFile ("../io/sensor_blueprints_file.dat");
-  string s2nFile ("../io/s2n_blueprint_file.dat");
-  string n2nFile ("../io/n2n_blueprint_file.dat");
-  string s2jFile ("../io/s2j_blueprint_file.dat");
-  string n2jFile ("../io/n2j_blueprint_file.dat");
+  string sim_str = to_string(simulation_number);
+  string extension (".dat");
+  int index (0);
+
+  string bodyFile ("b_bf_.dat");
+  bodyFile.insert(0, io_file);
+  index = bodyFile.find(extension);
+  bodyFile.insert(index, sim_str);
+  
+  string jointFile ("j_bf_.dat");
+  jointFile.insert(0, io_file);
+  index = jointFile.find(extension);
+  jointFile.insert(index, sim_str);
+  
+  string sensorFile ("s_bf_.dat");
+  sensorFile.insert(0, io_file);
+  index = sensorFile.find(extension);
+  sensorFile.insert(index, sim_str);
+  
+  string s2nFile ("s2n_bf_.dat");
+  s2nFile.insert(0, io_file);
+  index = s2nFile.find(extension);
+  s2nFile.insert(index, sim_str);
+  
+  string n2nFile ("n2n_bf_.dat");
+  n2nFile.insert(0, io_file);
+  index = n2nFile.find(extension);
+  n2nFile.insert(index, sim_str);
+  
+  string s2jFile ("s2j_bf_.dat");
+  s2jFile.insert(0, io_file);
+  index = s2jFile.find(extension);
+  s2jFile.insert(index, sim_str);
+
+  string n2jFile ("n2j_bf_.dat");
+  n2jFile.insert(0, io_file);
+  index = n2jFile.find(extension);
+  n2jFile.insert(index, sim_str);
+
 
   // Create ground, spheres, joints
-
   bodys = UseBodyBlueprints(bodyFile);
   joints = UseJointBlueprints(jointFile);
 
   /*
   IDs = new int [bodys.size()+1]; 
-  touches = new int [body.sizes()+1];
-  touchesPoints = new btVector3 [body.sizes()+1];
+  bodyTouches = new int [body.sizes()+1];
+  touchesPoint = new btVector3 [body.sizes()+1];
   */
   
-  m_bodyparts.clear();
+  m_bodyparts.resize(0);
   m_bodyparts.reserve(bodys.size());
-  m_geomparts.clear();
+  //m_bodyparts.expand(bodys.size());
+  m_geomparts.resize(0);
   m_geomparts.reserve(bodys.size()+1);
-  m_geomparts.clear();
+  //m_geomparts.expand(bodys.size()+1);
+  m_jointparts.resize(0);
   m_jointparts.reserve(joints.size());
+  //m_jointparts.expand(joints.size());
 
-  IDs = new int [bodys.size()+1]; 
-  touches.clear();
-  touches.reserve(bodys.size()+1);
-  touchesPoints.clear();
-  touchesPoints.reserve(bodys.size()+1);
+  //IDs = new int [bodys.size()+1];
+  //btAlignedObjectArray<int> IDs;
+  IDs.resize(0);
+  IDs.reserve(bodys.size()+1);
+  bodyTouches.resize(0);
+  bodyTouches.reserve(bodys.size()+1);
+  //bodyTouches.expand(bodys.size()+1);
+  touchesPoint.resize(0);
+  touchesPoint.reserve(bodys.size()+1);
+  //touchesPoint.expand(bodys.size()+1);
 
   for (int i=0; i<(bodys.size()+1); i++)
     {
-      IDs[i] = i;
-      touches.push_back(0);
-      touchesPoints.push_back(btVector3(0.,0.,0.));
+      //IDs[i] = i;
+      IDs.push_back(0);
+      bodyTouches.push_back(0);
+      touchesPoint.push_back(btVector3(0.,0.,0.));
     }
 
   CreateGround(0);
-  
+  //cout << "-------------------START AGENT-------------------" << endl;
   //bodys[0].printSelf();
   CreateSphere(bodys[0].id, bodys[0].x, bodys[0].y, bodys[0].z, bodys[0].size);
   
@@ -151,7 +190,7 @@ void NoiseWorld::initPhysics()
 		  joints[i].ax, joints[i].ay, joints[i].az, 
 		  joints[i].lower_limit, joints[i].upper_limit, joints[i].motor);
     }
-
+  //cout << "--------------------END AGENT--------------------" << endl;
   // Create ANN
 
   sensors = UseSensorBlueprints(sensorFile);
@@ -161,7 +200,8 @@ void NoiseWorld::initPhysics()
       sensors[i].printSelf();
     }
   */
-  sensorTouches.clear();
+
+  sensorTouches.resize(0);
   sensorTouches.reserve(sensors.size());
   for (int i=0; i<sensors.size(); i++)
     {
@@ -232,11 +272,11 @@ void NoiseWorld::clientMoveAndDisplay ()
     {
       if (!pause || (pause && oneStep))
 	{
-	  //reset touches 
-	  for (int i=0;i<touches.size();i++)
+	  //reset bodyTouches 
+	  for (int i=0;i<bodyTouches.size();i++)
 	    {
-	      touches[i] = 0;
-	      touchesPoints[i] = btVector3(0.,0.,0.);
+	      bodyTouches[i] = 0;
+	      touchesPoint[i] = btVector3(0.,0.,0.);
 	    }
 	  for (int i=0;i<sensorTouches.size();i++)
 	    {
@@ -251,9 +291,9 @@ void NoiseWorld::clientMoveAndDisplay ()
 	  if(RUNCOMMENTS)
 	    {
 	      cout << "Touches: ";
-	      for (int i=0; i<touches.size(); i++)
+	      for (int i=0; i<bodyTouches.size(); i++)
 		{
-		  cout << touches[i] << ", ";
+		  cout << bodyTouches[i] << ", ";
 		}
 	      cout << endl;
 	    }
@@ -261,13 +301,18 @@ void NoiseWorld::clientMoveAndDisplay ()
 	  if (RUNCOMMENTS)
 	    {cout << "About to calculate sensorTouches" << endl;}
  
-	  // This makes sensorTouches = 1 only if it touches on the right part of the body part
+	  // This makes sensorTouches = 1 only if it bodyTouches on the right part of the body part
+	  // For every sensor
 	  for (int i=0; i<sensors.size(); i++)
 	    {	      
+	      // Find it's body id
 	      sensor_body_id = sensors[i].body_id;
+	      // and that body's 'bodyTouches' index,
 	      sensor_touches_id = sensor_body_id + 1;
-	      if (touches[sensor_touches_id]==1)
+	      // If the body had any contact, calculate
+	      if (bodyTouches[sensor_touches_id]==1)
 		{
+		  /*
 		  // Body position
 		  bp_x = m_bodyparts[sensor_body_id]->getCenterOfMassPosition().x();
 		  bp_y = m_bodyparts[sensor_body_id]->getCenterOfMassPosition().y();
@@ -278,15 +323,33 @@ void NoiseWorld::clientMoveAndDisplay ()
 		  sp_y = bp_y + (the_size * sensors[i].y);
 		  sp_z = bp_z + (the_size * sensors[i].z);
 		  // Touched
-		  t_x = touchesPoints[sensor_touches_id].x();
-		  t_y = touchesPoints[sensor_touches_id].y();
-		  t_z = touchesPoints[sensor_touches_id].z();		 
-		  if (((t_x <= (sp_x + sensor_area))&&
-		       (t_y <= (sp_y + sensor_area))&&
-		       (t_z <= (sp_z + sensor_area)))&&
-		      ((t_x >= (sp_x - sensor_area))&&
-		       (t_y >= (sp_y - sensor_area))&&
-		       (t_z >= (sp_z - sensor_area))))
+		  t_x = touchesPoint[sensor_touches_id].x();
+		  t_y = touchesPoint[sensor_touches_id].y();
+		  t_z = touchesPoint[sensor_touches_id].z();		 
+		
+		  if (((t_x <= (sp_x + sensor_radius))&&
+		       (t_y <= (sp_y + sensor_radius))&&
+		       (t_z <= (sp_z + sensor_radius)))&&
+		      ((t_x >= (sp_x - sensor_radius))&&
+		       (t_y >= (sp_y - sensor_radius))&&
+		       (t_z >= (sp_z - sensor_radius))))
+		    {
+		      sensorTouches[i]=1;
+		    }
+		  */
+		  body_size = bodys[sensor_body_id].size;
+		  if (((touchesPoint[sensor_touches_id].x() <= ((sensors[i].x * body_size) +
+								 sensor_radius))&&
+		       (touchesPoint[sensor_touches_id].y() <= ((sensors[i].y * body_size) +
+								 sensor_radius))&&
+		       (touchesPoint[sensor_touches_id].z() <= ((sensors[i].z * body_size) + 
+								 sensor_radius)))&&
+		      ((touchesPoint[sensor_touches_id].x() >= ((sensors[i].x * body_size) -
+								 sensor_radius))&&
+		       (touchesPoint[sensor_touches_id].y() >= ((sensors[i].y * body_size) -
+								 sensor_radius))&&
+		       (touchesPoint[sensor_touches_id].z() >= ((sensors[i].z * body_size) -
+								 sensor_radius))))
 		    {
 		      sensorTouches[i]=1;
 		    }
@@ -320,7 +383,7 @@ void NoiseWorld::clientMoveAndDisplay ()
 		  if (RUNCOMMENTS)
 		    { cout << "MotorCommand 2: " << motor_command << endl;}
 
-		  motor_command = motor_command * DEGS_TO_RADS;
+		  motor_command = motor_command * UNITS_TO_RADS;
 		  if (RUNCOMMENTS)
 		    { cout << "MotorCommand 3: " << motor_command << endl;}
 		 
@@ -332,7 +395,7 @@ void NoiseWorld::clientMoveAndDisplay ()
 
 	  if (drawGraphics)
 	    {
-	      if (timeStep >= 500)
+	      if (timeStep > 500)
 		{
 		  Save_Position(true);
 		  exit(0);
@@ -350,7 +413,24 @@ void NoiseWorld::clientMoveAndDisplay ()
       glutSwapBuffers();
     }
 }
-  
+
+
+void NoiseWorld::ParseCmdLine(char* swtxt)
+{       
+  if(swtxt[0] == '-')
+    {
+    if(swtxt[1] == 'f')
+      {
+	strcpy(io_file, &(swtxt[2]));
+      }
+    if(swtxt[1] == 'n')
+      {  
+	sscanf(swtxt, "-n%d", &simulation_number);
+      }
+    }
+}
+
+
 void NoiseWorld::displayCallback()
 {
   if (drawGraphics)
@@ -384,37 +464,31 @@ void NoiseWorld::keyboardCallback(unsigned char key, int x, int y)
     }
 }
 
+
 // =================== Clean up Stage ===============================
 void NoiseWorld::exitPhysics()
-{
- 
-  // Rigid Bodies
-  // m_dynamicsWorld->removeRigidBody(fallRigidBody);
-  //delete fallRigidBody->getMotionState();
-  //delete fallRigidBody;
+{  
+  touchesPoint.clear();
+  sensorTouches.clear();
+  bodyTouches.clear();
+  IDs.clear();
 
-  //m_dynamicsWorld->removeRigidBody(groundRigidBody);
-  //delete groundRigidBody->getMotionState();
-  //delete groundRigidBody;
-  
+  weights_n2j.clear();
+  weights_s2j.clear();
+  weights_n2n.clear();
+  weights_s2n.clear();
 
-  // for my jointparts
-  for (int i=0;i<m_jointparts.size();i++)
-    {
-      DeleteHinge(i);
-    }
+  sensors.clear();
+  joints.clear();
+  bodys.clear();
 
-  DeleteGround();
+  output_s2n.clear();
+  output_n2n.clear();
+  output_s2j.clear();  
+  output_n2j.clear();
 
-  // for my bodyparts
-  for (int i=0;i<m_bodyparts.size();i++)
-    {
-      DeleteObject(i);
-    }
-
-  /*
-  //remove the rigidbodies from the dynamics world and delete them
-  for (int i=m_dynamicsWorld->getNumCollisionObjects()-1; i>=0 ;i--)
+  //delete rigid bodies, motion states, and constraints
+  for (int i=m_dynamicsWorld->getNumCollisionObjects()-1; i>=0; i--)
     {
       btCollisionObject* obj = m_dynamicsWorld->getCollisionObjectArray()[i];
       btRigidBody* body = btRigidBody::upcast(obj);
@@ -422,31 +496,25 @@ void NoiseWorld::exitPhysics()
 	{
 	  delete body->getMotionState();
 	}
-      m_dynamicsWorld->removeCollisionObject( obj );
+      m_dynamicsWorld->removeCollisionObject(obj);
+      if (i < m_jointparts.size())
+	{
+	  btHingeConstraint* joint = m_jointparts[i];
+	  delete joint;
+	}	 
       delete obj;
     }
-  */
   
-  /*
-  delete weights_n2j;
-  delete weights_s2j;
-  delete weights_n2n;
-  delete weights_s2n;
-  
-  delete sensorTouches;
-  delete sensors;
+  //delete collision shapes
+  for (int j=0;j<m_geomparts.size();j++)
+    {
+      btCollisionShape* shape = m_geomparts[j];
+      delete shape;
+    }
 
-  delete touchesPoints;
-  delete touches;
-  delete IDs;
-
-  delete joints;
-  delete bodys;
-  */
-
-  // Ground
-  //delete fixedGround;
-  //delete groundShape;
+  m_jointparts.clear();
+  m_geomparts.clear();
+  m_bodyparts.clear();
 
   // World
   delete m_dynamicsWorld;
