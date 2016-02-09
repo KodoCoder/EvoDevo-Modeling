@@ -2,7 +2,7 @@ import itertools
 from more_itertools import peekable
 from collections import namedtuple
 
-from part import Part
+from part import (Part, RegulatorPool)
 from subpart import (BodyPart, JointPart, NeuronPart, SensorPart, WirePart)
 
 
@@ -37,7 +37,10 @@ def update_cycles(parts_developing):
                          regulatory-elements of a part is one update cycle away
                          from the part's capacity.
     """
-    developed_parts = []
+    diffusion_pull = .1
+    diffusion_push = .05
+    reg_pool = RegulatorPool(diffusion_pull, diffusion_push)
+    developed_parts = list()
     while(parts_developing):
         count = 0
         for i in parts_developing:
@@ -45,7 +48,7 @@ def update_cycles(parts_developing):
             # that is left, end development.
             if i.regulators_per_update == 0:
                 count += 1
-                i._diffusion()
+                i._diffusion(reg_pool)
                 if count == len(parts_developing):
                     parts_developing.remove(i)
                     count -= 1
@@ -59,7 +62,7 @@ def update_cycles(parts_developing):
             # Otherwise, keep updating
             else:
                 i.update()
-                i._diffusion()
+                i._diffusion(reg_pool)
     return developed_parts
 
 
@@ -250,7 +253,8 @@ def jump_generator(generator, mount_list):
     return generator.peek()
 
 
-def select_wire_parts(developed_parts, frame_parts, neuron_parts, sensor_parts):
+def select_wire_parts(developed_parts, frame_parts,
+                      neuron_parts, sensor_parts):
     """Returns the set of wires to be used in bulding the robot."""
     wire_list = [i for i in developed_parts
                  if i.__class__ == WirePart]

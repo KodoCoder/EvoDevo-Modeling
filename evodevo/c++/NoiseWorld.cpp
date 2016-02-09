@@ -179,16 +179,18 @@ void NoiseWorld::initPhysics()
   //cout << "-------------------START AGENT-------------------" << endl;
   //bodys[0].printSelf();
   CreateSphere(bodys[0].id, bodys[0].x, bodys[0].y, bodys[0].z, bodys[0].size);
-  
+
   for (int i=0; i<joints.size(); i++)
     {
+      BodyPart body = bodys[i+1];
+      JointPart joint = joints[i];
       //bodys[i+1].printSelf();
-      CreateSphere(bodys[i+1].id, bodys[i+1].x, bodys[i+1].y, bodys[i+1].z, bodys[i+1].size);
+      CreateSphere(body.id, body.x, body.y, body.z, body.size);
       //joints[i].printSelf();
-      CreateHinge(joints[i].id, joints[i].base_body, joints[i].other_body,
-		  joints[i].px, joints[i].py, joints[i].pz, 
-		  joints[i].ax, joints[i].ay, joints[i].az, 
-		  joints[i].lower_limit, joints[i].upper_limit, joints[i].motor);
+      CreateHinge(joint.id, joint.base_body, joint.other_body,
+		  joint.px, joint.py, joint.pz, 
+		  joint.ax, joint.ay, joint.az, 
+		  joint.lower_limit, joint.upper_limit, joint.motor);
     }
   //cout << "--------------------END AGENT--------------------" << endl;
   // Create ANN

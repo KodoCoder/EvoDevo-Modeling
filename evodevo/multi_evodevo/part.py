@@ -4,9 +4,18 @@ import numpy as np
 
 from my_table import table
 
-REGULATOR_POOL = [0.] * 40
-DIFFUSION_RATE_PULL = .1
-DIFFUSION_RATE_PUSH = .05
+
+class RegulatorPool(object):
+    def __init__(self, pull_rate, push_rate):
+        self.pool = [0.] * 40
+        self._pull_rate = pull_rate
+        self._push_rate = push_rate
+
+    def get_pull_rate(self):
+        return self._pull_rate
+
+    def get_push_rate(self):
+        return self._push_rate
 
 
 class Part(object):
@@ -47,7 +56,7 @@ class Part(object):
                 their relative magnitudes end up determining the
                 characteristics of the part.
         num_updates:  Counts how many update cycles a part has gone through.
-nnnn                      Used for analysis purposes.
+                      Used for analysis purposes.
     """
     def __init__(self, gene_sequence):
         """
@@ -270,9 +279,8 @@ nnnn                      Used for analysis purposes.
             else:
                 raise KeyError('Take a look at your Table!')
 
-    def get_push_list(self):
+    def get_push_list(self, reg_pool):
         """Returns list of REs to push to REGULATOR_POOL and modifies RP."""
-        global REGULATOR_POOL, DIFFUSION_RATE_PUSH
         push_list = list()
         # BodyPart REs
         push_list += self.reg_size
@@ -295,24 +303,23 @@ nnnn                      Used for analysis purposes.
         push_list += self.reg_weight
         push_list += self.reg_direct
         # Make push list, modify REGULATOR_POOL, and output list
-        o_push_list = [int(math.floor(DIFFUSION_RATE_PUSH * i))
+        o_push_list = [int(math.floor(reg_pool.get_push_rate() * i))
                        for i in push_list]
-        REGULATOR_POOL = [i + j for i, j in
-                          itertools.izip(REGULATOR_POOL, o_push_list)]
+        reg_pool.pool = [i + j for i, j in
+                         itertools.izip(reg_pool.pool, o_push_list)]
         return o_push_list
 
-    def get_pull_list(self):
-        global REGULATOR_POOL, DIFFUSION_RATE_PULL
+    def get_pull_list(self, reg_pool):
         # Make pull list, modify REGULATOR_POOL, make sure that
         # REGULATOR_POOL doesn't drop below 0, and output list
-        pull_list = [i for i in REGULATOR_POOL]
-        o_pull_list = [int(math.floor(DIFFUSION_RATE_PULL * i))
+        pull_list = [i for i in reg_pool.pool]
+        o_pull_list = [int(math.floor(reg_pool.get_pull_rate() * i))
                        for i in pull_list]
-        REGULATOR_POOL = [i - j for i, j in
-                          itertools.izip(REGULATOR_POOL, o_pull_list)]
-        for c, e in enumerate(REGULATOR_POOL):
+        reg_pool.pool = [i - j for i, j in
+                         itertools.izip(reg_pool.pool, o_pull_list)]
+        for c, e in enumerate(reg_pool.pool):
             if e < 0:
-                REGULATOR_POOL[c] = 0
+                reg_pool.pool[c] = 0
                 o_pull_list[c] += e
         return o_pull_list
 
@@ -366,7 +373,7 @@ nnnn                      Used for analysis purposes.
         self.reg_direct[0] = max(0, self.reg_direct[0] + phpllst[38])
         self.reg_direct[1] = max(0, self.reg_direct[1] + phpllst[39])
 
-    def _diffusion(self):
+    def _diffusion(self, reg_pool):
         """
         Wrapper for diffusion sub_methods.
 
@@ -374,8 +381,8 @@ nnnn                      Used for analysis purposes.
         with added check that class-instance regulatory_elements
         doesn't drop below 0.
         """
-        pllst = self.get_pull_list()
-        phlst = self.get_push_list()
+        pllst = self.get_pull_list(reg_pool)
+        phlst = self.get_push_list(reg_pool)
         # Negative values means more pushed than pulled
         phpllst = [i - j for i, j in itertools.izip(pllst, phlst)]
         self.use_phpl_list(phpllst)

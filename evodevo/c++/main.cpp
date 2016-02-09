@@ -1,11 +1,13 @@
 #include "NoiseWorld.cpp"
 #include "GlutStuff.h"
-//#include "GLDebugDrawer.h"
+#include "GLDebugDrawer.h"
 #include "btBulletDynamicsCommon.h"
 
 
 /*
-g++ -g -Wl,-rpath=./more_libs/lib,--enable-new-dtags -std=gnu++11 -I../bullet-2.82-r2704/Demos/OpenGL/ -I./more_libs/include/ -I../bullet-2.82-r2704/src/ ./main.cpp -L../bullet-2.82-r2704/Glut/ -L./more_libs/lib/ -L./more_libs/mesa -L../bullet-build/Demos/OpenGL/ -L../more_libs/lib/x86_64-linux-gnu -L../bullet-build/src/BulletDynamics/ -L../bullet-build/src/BulletCollision/ -L../bullet-build/src/LinearMath/ -lOpenGLSupport -lGL -lGLU -lglut -lBulletDynamics -lBulletCollision -lLinearMath -lXi -lXxf86vm -lX11 -o ./app
+g++ -fno-inline -O0 -g -Wall -Wl,-rpath=./more_libs/lib,--enable-new-dtags -std=gnu++11 -I../bullet-2.82-r2704/Demos/OpenGL/ -I./more_libs/include/ -I../bullet-2.82-r2704/src/ ./main.cpp -L../bullet-2.82-r2704/Glut/ -L./more_libs/lib/ -L./more_libs/mesa -L../bullet-build/Demos/OpenGL/ -L../more_libs/lib/x86_64-linux-gnu -L../bullet-build/src/BulletDynamics/ -L../bullet-build/src/BulletCollision/ -L../bullet-build/src/LinearMath/ -lOpenGLSupport -lGL -lGLU -lglut -lBulletDynamics -lBulletCollision -lLinearMath -lXi -lXxf86vm -lX11 -o ./app
+
+g++ -O0 -fno-inline -g -std=gnu++11 -I/home/josh/bullet-2.82-r2704/Demos/OpenGL/ -I/home/josh/bullet-2.82-r2704/src/ ./main.cpp -L/home/josh/bullet-build/Demos/OpenGL/ -L/home/josh/bullet-2.82-r2704/bullet-build/src/BulletDynamics/ -L/home/josh/bullet-2.82-r2704/bullet-build/src/BulletCollision/ -L/home/josh/bullet-2.82-r2704/bullet-build/src/LinearMath/ -L/home/josh/bullet-2.82-r2704/bullet-build/Demos/OpenGL -lOpenGLSupport -lGL -lGLU -lglut -lBulletDynamics -lBulletCollision -lLinearMath -o ./app
 */
 
 
@@ -29,6 +31,7 @@ int main(int argc, char *argv[])
       simulation.ParseCmdLine(argv[1]);
       simulation.ParseCmdLine(argv[2]);
       simulation.initPhysics();
+      //simulation.getDynamicsWorld()->setDebugDrawer(&gDebugDrawer);
       return glutmain(argc, argv, 640, 480, "Bullet Physics Demo. http://bulletphysics.com",
 		      &simulation);
     }
@@ -38,6 +41,7 @@ int main(int argc, char *argv[])
       simulation.ParseCmdLine(argv[1]);
       simulation.ParseCmdLine(argv[2]);
       simulation.initPhysics();
+      //simulation.getDynamicsWorld()->setDebugDrawer(&gDebugDrawer);
       //cout << "----------START SIM " << argv[1] << "----------" << endl;
       while(simulation.timeStep <= 500) 
 	{

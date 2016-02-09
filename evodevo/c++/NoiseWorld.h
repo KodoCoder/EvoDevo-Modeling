@@ -1,3 +1,5 @@
+#define CONSTRAINT_DEBUG_SIZE 0.2f
+
 #include "GL_ShapeDrawer.h"
 #include "GlutDemoApplication.h"
 //#include "LinearMath/btAlignedObjectArray.h"
@@ -325,14 +327,15 @@ class NoiseWorld : public GlutDemoApplication
 	  btVector3 locAxis1 = AxisWorldToLocal(body1, axis);
 	  btVector3 locPoint2 = PointWorldToLocal(body2, position);
 	  btVector3 locAxis2 = AxisWorldToLocal(body2, axis);
-	  btHingeConstraint* joint;
-	  joint = new btHingeConstraint(*m_bodyparts[body1], *m_bodyparts[body2], 
-					locPoint1, locPoint2, locAxis1, locAxis2,
-					true);
-	  joint->setLimit(lower, upper);	
+	  btHingeConstraint* joint = new btHingeConstraint(*m_bodyparts[body1], *m_bodyparts[body2], 
+							   locPoint1, locPoint2, locAxis1, locAxis2,
+							   true);
+	  joint->setLimit(lower, upper);
+	  joint->enableMotor(motor);
+	  joint->setDbgDrawSize(CONSTRAINT_DEBUG_SIZE);
 	  m_jointparts.push_back(joint);
 	  m_dynamicsWorld->addConstraint(m_jointparts[index], false);
-	  m_jointparts[index]->enableMotor(motor);
+	  
 	}
 	
 

@@ -6,9 +6,9 @@ from collections import namedtuple
 
 import pdb
 
-SimulationData = namedtuple('SimulationData', ['fitness'])  #, 'x_pos', 'z_pos'])
-# OutputRow = namedtuple('OutputRow', ['fitness', 'original_genome',
-#                                      'built_genome'])
+
+SimulationData = namedtuple('SimulationData', ['fitness'])
+# , 'x_pos', 'z_pos'])
 
 
 def grab_data(data_file):
@@ -42,7 +42,6 @@ def run_simulation(io_file, sim_num, test=False):
     data = grab_data(data_file)
     fitness = float(data.fitness)
     # if fitness > 1000:
-
     #     print sim_num, fitness, fitness > 1000
     #     print x_pos, z_pos
     #     pdb.set_trace()

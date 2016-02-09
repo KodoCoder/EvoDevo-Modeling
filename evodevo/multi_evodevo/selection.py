@@ -1,18 +1,19 @@
 """select ---
 
 """
-import random
 from operator import itemgetter
+from numpy.random import RandomState
 
 import initiate
 from initiate import add_noise
 
 
-def next_generation(current_population, fitness_list, error_rate):
+def next_generation(current_population, fitness_list, error_rate, rand_seed):
     """Returns a list of gene-codes the size of the current_population,
         based on the fitness scores provided
 
     """
+    selection_prng = RandomState(rand_seed)
     new_population = list()
     population_size = len(current_population)
     first_quarter = int(round(population_size * .05))
@@ -41,10 +42,13 @@ def next_generation(current_population, fitness_list, error_rate):
         selected_index.append(agent[0])
         fitness_list.remove(agent)
     for index in selected_index:
-        new_population.append(add_noise(current_population[index], error_rate))
+        new_population.append((current_population[index][0],
+                               add_noise(current_population[index][1],
+                                         error_rate,
+                                         selection_prng)))
     return new_population
 
-
+'''
 p = list()
 for i in range(60):
     p.append(unicode(initiate.generate_genome(18000), 'utf-8'))
@@ -63,3 +67,4 @@ def ng_test(c, f, e):
 def tngt(c=p, f=t, e=r):
     for i in range(30):
         ng_test(c, f, e)
+'''

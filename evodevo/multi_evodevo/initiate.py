@@ -1,11 +1,9 @@
-import random
-
 from my_table import table
 from part import Part
 from subpart import (BodyPart, JointPart, NeuronPart, SensorPart, WirePart)
 
 
-def generate_genome(num_chars):
+def generate_genome(num_chars, rand_state):
     """
     Returns string of 0s--3s that represents a genome.
 
@@ -19,11 +17,11 @@ def generate_genome(num_chars):
     germ_genome = ''
     for i in xrange(num_chars):
         germ_genome = ''.join((germ_genome,
-                               str(random.randrange(0, 4))))
+                               str(rand_state.randint(0, 4))))
     return germ_genome
 
 
-def add_noise(genome, error_rate):
+def add_noise(genome, error_rate, rand_state):
     """
     Returns a copy of inputted genomes with some mutation.
 
@@ -39,14 +37,15 @@ def add_noise(genome, error_rate):
     """
     new_genome = ''
     for char in genome:
-        if (0 <= error_rate < random.random()):
+        if (0 <= error_rate < rand_state.random_sample()):
             new_genome = ''.join((new_genome, str(char)))
         else:
-            error_bit = (int(char) + random.randrange(1, 4)) % 4
+            error_bit = (int(char) + rand_state.randint(1, 4)) % 4
             new_genome = ''.join((new_genome, str(error_bit)))
     return new_genome
 
 
+# testers for add_noise()
 def tan(g, e, n):
     t = list()
     for i in xrange(n):
@@ -137,7 +136,7 @@ def setup_part(part_sequence):
     return new_part
 
 
-def setup_agent(genome, error_rate):
+def setup_agent(genome, error_rate, rand_state):
     """
     Returns a list of proto_parts and the genome that generated those parts.
 
@@ -151,7 +150,7 @@ def setup_agent(genome, error_rate):
         proto_parts: a list of part objects.
     """
     proto_parts = list()
-    building_gene_code = add_noise(genome, error_rate)
+    building_gene_code = add_noise(genome, error_rate, rand_state)
     sequence_list = genome_parser(building_gene_code)
     for sequence in sequence_list:
         proto_part = setup_part(sequence)

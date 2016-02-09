@@ -102,7 +102,7 @@ def export_ann(s2n_blueprint, n2n_blueprint, s2j_blueprint,
 def export_buffer(io_file, sim_num):
     buffer_file = io_file + 'buffer_' + str(sim_num) + '.dat'
     with open(buffer_file, 'w+') as wf:
-        wf.write("Hello World!")
+        wf.write("EvoDevo")
 
 
 def export_all(body_blueprints, joint_blueprints, sensor_blueprints,
