@@ -23,22 +23,22 @@ def next_generation(current_population, fitness_list, error_rate, rand_seed):
     fitness_list = [c for c in enumerate(fitness_list)]
     selected_index = list()
     for i in xrange(first_quarter):
-        agent = max(fitness_list, key=itemgetter(1))
+        agent = max(fitness_list, key=itemgetter(1, 0))
         for i in xrange(4):
             selected_index.append(agent[0])
         fitness_list.remove(agent)
     for i in xrange(first_quarter, second_quarter):
-        agent = max(fitness_list, key=itemgetter(1))
+        agent = max(fitness_list, key=itemgetter(1, 0))
         for i in xrange(3):
             selected_index.append(agent[0])
         fitness_list.remove(agent)
     for i in xrange(second_quarter, third_quarter):
-        agent = max(fitness_list, key=itemgetter(1))
+        agent = max(fitness_list, key=itemgetter(1, 0))
         for i in xrange(2):
             selected_index.append(agent[0])
         fitness_list.remove(agent)
     for i in xrange(third_quarter, fourth_quarter):
-        agent = max(fitness_list, key=itemgetter(1))
+        agent = max(fitness_list, key=itemgetter(1, 0))
         selected_index.append(agent[0])
         fitness_list.remove(agent)
     for index in selected_index:
@@ -52,6 +52,7 @@ def next_generation(current_population, fitness_list, error_rate, rand_seed):
 p = list()
 for i in range(60):
     p.append(unicode(initiate.generate_genome(18000), 'utf-8'))
+
 
 t = range(30) + range(30)
 

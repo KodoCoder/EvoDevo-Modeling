@@ -3,11 +3,12 @@ experimental run with data collection.
 """
 
 import os
-from numpy.random import RandomState
 import multiprocess as mp
 from functools import partial
 import sqlite3
-import pickle
+import cPickle
+from operator import itemgetter
+from numpy.random import RandomState
 
 import part
 import initiate
@@ -83,7 +84,7 @@ def make_sql_db(population, reproduction_cond,
     the_file = '../data/pop{}r{:04}b{:04}.db'.format(population,
                                                      mod_repro_cond,
                                                      mod_build_cond)
-    if not os.path.isdirs(the_file[:8]):
+    if not os.path.isdir(the_file[:8]):
         os.path.makedirs(the_file[:8])
     while (os.path.isfile(the_file)):
         # print the_file
@@ -125,7 +126,7 @@ def grab_sim_selection_data(db, gen):
     s = 'SELECT sim_num, fitness, germline_genes FROM gen{}'.format(gen)
     c.execute(s)
     data = sorted(c.fetchall(),
-                  key=lambda dat: dat[1])
+                  key=itemgetter(1, 0))
     conn.close()
     fitness = [data[i][1] for i in range(len(data))]
     genomes = [(data[i][0], data[i][2]) for i in range(len(data))]
@@ -145,7 +146,7 @@ def grab_a_genome(db, gen, agent, u=False):
     s = 'SELECT fitness, germline_genes, somaline_genes FROM gen{}'.format(gen)
     c.execute(s)
     data = sorted(c.fetchall(),
-                  key=lambda row: row[0])
+                  key=itemgetter(0))
     conn.close()
     if u:
         fitness = [data[i][0] for i in range(len(data))]
@@ -183,14 +184,14 @@ def compare_data(db1, db2, gen):
     s = 'SELECT sim_num, fitness, germline_genes, somaline_genes FROM gen{}'.format(gen)
     c.execute(s)
     data1 = sorted(c.fetchall(),
-                   key=lambda pair: pair[0])
+                   key=itemgetter(0))
     conn.close()
     conn = sqlite3.connect(db2)
     c = conn.cursor()
     s = 'SELECT sim_num, fitness, germline_genes, somaline_genes FROM gen{}'.format(gen)
     c.execute(s)
     data2 = sorted(c.fetchall(),
-                   key=lambda pair: pair[0])
+                   key=itemgetter(0))
     conn.close()
     # return [fitnesses, genomes]
     diff = list()
@@ -408,7 +409,7 @@ def run_generations(reproduction_error_rate, build_error_rate,
                                                  int(build_error_rate * 10000))
     pickle_file = ''.join(('../data/prng_states/', cond_str))
     with open(pickle_file, 'wb+') as pfw:
-        pickle.dump(main_prng, pfw)
+        cPickle.dump(main_prng, pfw)
 
 
 def main():
@@ -416,9 +417,17 @@ def main():
         make_filled_db()
     pop_num = int(raw_input("What population should be run? "))
     gen_num = int(raw_input("How many generations should be run? "))
-    for rep_er_cond in xrange(5, 51, 5):
+    rep_cond_start = int(raw_input(
+        "Start with which reproduction error condition? "))
+    build_cond_start = int(raw_input(
+        "Start with which build error condition? "))
+    rep_cond_end = int(raw_input(
+        "End with which reproduction error condition? "))
+    build_cond_end = int(raw_input(
+        "End with which build error condition? "))
+    for rep_er_cond in xrange(rep_cond_start, rep_cond_end+1, 5):
         rep_er = rep_er_cond / 10000.
-        for build_er_cond in xrange(5, 51, 5):
+        for build_er_cond in xrange(build_cond_start, build_cond_end+1, 5):
             build_er = build_er_cond / 10000.
             print "Start condition ", [rep_er, build_er]
             run_generations(rep_er, build_er, pop_num, gen_num)
