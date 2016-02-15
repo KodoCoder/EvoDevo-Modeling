@@ -9,6 +9,7 @@ import sqlite3
 import cPickle
 from operator import itemgetter
 from numpy.random import RandomState
+import cProfile
 
 import part
 import initiate
@@ -17,6 +18,19 @@ import blueprint
 import export
 import simulate
 import selection
+
+
+def do_cprofile(func):
+    def profiled_func(*args, **kwargs):
+        profile = cProfile.Profile()
+        try:
+            profile.enable()
+            result = func(*args, **kwargs)
+            profile.disable()
+            return result
+        finally:
+            profile.print_stats()
+    return profiled_func
 
 
 def make_io_file(pop, repro_cond, build_cond, io_dir='../io/'):
@@ -412,6 +426,7 @@ def run_generations(reproduction_error_rate, build_error_rate,
         cPickle.dump(main_prng, pfw)
 
 
+@do_cprofile
 def main():
     if not os.path.isfile('../data/population_genes.db'):
         make_filled_db()
@@ -429,8 +444,12 @@ def main():
         rep_er = rep_er_cond / 10000.
         for build_er_cond in xrange(build_cond_start, build_cond_end+1, 5):
             build_er = build_er_cond / 10000.
+    # for rep_cond in xrange(5, 51, 5):
+    #     rep_er = rep_cond / 10000.
+    #     for build_cond in xrange(5, 51, 5):
+    #         build_er = build_cond / 10000.
             print "Start condition ", [rep_er, build_er]
-            run_generations(rep_er, build_er, pop_num, gen_num)
+            run_generations(rep_er, build_er, pop_num)
     return 0
 
 

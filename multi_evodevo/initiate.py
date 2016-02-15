@@ -14,10 +14,11 @@ def generate_genome(num_chars, rand_state):
     Returns:
         germ_genome: A string of 0s--3s.
     """
-    germ_genome = ''
+    # germ_genome = ''
+    lgerm_genome = list()
     for i in xrange(num_chars):
-        germ_genome = ''.join((germ_genome,
-                               str(rand_state.randint(0, 4))))
+        lgerm_genome.append(str(rand_state.random_sample()))
+    germ_genome = ''.join(lgerm_genome)
     return germ_genome
 
 
@@ -35,13 +36,15 @@ def add_noise(genome, error_rate, rand_state):
         new_genome: A mutated copy of the inputted genome. Will always have
                     the same number of characters of inputted genome.
     """
-    new_genome = ''
+    # new_genome = str()
+    lgenome = list()
     for char in genome:
         if (0 <= error_rate < rand_state.random_sample()):
-            new_genome = ''.join((new_genome, str(char)))
+            lgenome.append(str(char))
         else:
             error_bit = (int(char) + rand_state.randint(1, 4)) % 4
-            new_genome = ''.join((new_genome, str(error_bit)))
+            lgenome.append(str(error_bit))
+    new_genome = ''.join(lgenome)
     return new_genome
 
 
