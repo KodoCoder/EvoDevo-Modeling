@@ -1,3 +1,9 @@
+"""initiate --- a module that creates the initial genomes, mutates genomes, and 
+creates proto-parts from genomes for development.
+
+Author: Joshua Hawthorne-Madell
+"""
+
 from my_table import table
 from part import Part
 from subpart import (BodyPart, JointPart, NeuronPart, SensorPart, WirePart)

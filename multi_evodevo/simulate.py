@@ -1,4 +1,8 @@
-# ###Code###
+"""simulate --- a module that checks that the development has been completed
+and runs the Bullet Physics app to simulate a "life" of a robot.
+
+Author: Joshua Hawthorne-Madell
+"""
 import os
 import time
 import subprocess
@@ -8,7 +12,6 @@ import pdb
 
 
 SimulationData = namedtuple('SimulationData', ['fitness'])
-# , 'x_pos', 'z_pos'])
 
 
 def grab_data(data_file):

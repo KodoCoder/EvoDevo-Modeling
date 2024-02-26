@@ -1,5 +1,7 @@
-"""select ---
+"""selection --- a module that selects which robots reproduce based on 
+their fitness.
 
+Author: Joshua Hawthorne-Madell
 """
 from operator import itemgetter
 from numpy.random import RandomState
@@ -47,25 +49,3 @@ def next_generation(current_population, fitness_list, error_rate, rand_seed):
                                          error_rate,
                                          selection_prng)))
     return new_population
-
-'''
-p = list()
-for i in range(60):
-    p.append(unicode(initiate.generate_genome(18000), 'utf-8'))
-
-
-t = range(30) + range(30)
-
-r = .005
-
-
-def ng_test(c, f, e):
-    out = next_generation(c, f, e)
-    print [[enumerate(out)[i], enumerate(c)[i]] for
-           i in range(len(c)) if len(out[i]) != len(c[i])]
-
-
-def tngt(c=p, f=t, e=r):
-    for i in range(30):
-        ng_test(c, f, e)
-'''

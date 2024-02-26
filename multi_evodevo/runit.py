@@ -1,5 +1,7 @@
 """runit --- a module that integrates the other code into an
 experimental run with data collection.
+
+Author: Joshua Hawthorne-Madell
 """
 
 import os

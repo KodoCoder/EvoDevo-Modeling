@@ -1,3 +1,8 @@
+/*
+Based on the Bullet Physics RagdollDemo, modified with help of Josh Bongard's MOOC ludobots
+
+Author: Joshua Hathorne-Madell
+*/
 #define CONSTRAINT_DEBUG_SIZE 0.2f
 
 #include "GL_ShapeDrawer.h"

@@ -1,3 +1,7 @@
+"""develop --- a module that runs the proto-parts through development.
+
+Author: Joshua Hawthorne-Madell
+"""
 import itertools
 from more_itertools import peekable
 from collections import namedtuple

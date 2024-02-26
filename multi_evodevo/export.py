@@ -1,5 +1,7 @@
-"""export ---
+"""export --- a module that exports the developed parts into blueprint files to
+so that the simulation app knows how to build the robots.
 
+Author: Joshua Hawthorne-Madell
 """
 import os
 

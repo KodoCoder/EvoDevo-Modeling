@@ -1,4 +1,8 @@
-# This file stores the string values for each product in the table
+"""Table that maps the codon string values to each regulatory product that is 
+used in development.
+
+Author: Joshua Hawthorne-Madell
+"""
 
 table = {'000': 'BP_SPHERE',
          '001': 'BP_SPHERE',

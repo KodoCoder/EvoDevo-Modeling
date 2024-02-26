@@ -1,3 +1,9 @@
+"""part --- a module that defines the base characteristics of the parts 
+of a robot.
+
+Author: Joshua Hawthorne-Madell
+"""
+
 import itertools
 import math
 import numpy as np
@@ -19,7 +25,7 @@ class RegulatorPool(object):
 
 
 class Part(object):
-    """Super part class that defines general attributes and functionality.
+    """Part class that defines general attributes and functionality.
 
     This class has the basic information for all parts, such as the number and
     kinds of codons and regulatory elements  (REs) the part contains. This

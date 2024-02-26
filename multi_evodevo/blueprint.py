@@ -1,4 +1,8 @@
-# ### Code ###
+"""blueprint --- a module that takes developed parts and combines them into a 
+workable blueprint for the simulation to use.
+
+Author: Joshua Hawthorne-Madell
+"""
 import pprint as pp
 import itertools
 from collections import namedtuple

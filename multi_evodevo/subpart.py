@@ -1,3 +1,8 @@
+"""subpart --- a module that defines the specfic sub-characteristics of the 
+different parts of a robot.
+
+Author: Joshua Hawthorne-Madell
+"""
 import numpy as np
 import math
 import itertools
